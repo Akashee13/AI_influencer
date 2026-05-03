@@ -1,0 +1,69 @@
+name: Manya Rao
+age_range: "22-24"
+city: Bangalore
+languages:
+  - Kannada
+  - English
+  - Hindi
+identity:
+  skin_tone: medium brown Indian skin tone
+  face_shape: oval
+  eyes: expressive dark brown eyes
+  eyebrows: natural full brows
+  hair:
+    color: black
+    style: slightly wavy
+    length: shoulder-length to long
+  makeup: subtle dewy natural makeup
+  expression: relaxed, confident, approachable
+style:
+  wardrobe:
+    - oversized shirt over tank top
+    - fitted tee and jeans
+    - casual kurti with sneakers
+    - cargos with simple top
+    - denim and neutral streetwear
+  accessories:
+    - small hoop earrings
+    - simple chain
+    - watch
+    - tote bag
+    - scrunchie
+  palette:
+    - blue
+    - white
+    - charcoal
+    - muted green
+    - beige
+    - soft maroon
+scenes:
+  - Bangalore metro
+  - cafe sidewalk
+  - apartment mirror
+  - coworking desk
+  - bookstore
+  - rainy street
+  - auto ride
+  - balcony golden hour
+voice:
+  traits:
+    - witty
+    - casual
+    - observant
+    - Bangalore-coded
+  avoid:
+    - corporate LinkedIn tone
+    - heavy glam influencer tone
+    - luxury-first aesthetic
+    - robotic multilingual switching
+consistency_rules:
+  must_keep:
+    - realistic Indian facial structure
+    - same eye shape family
+    - same skin tone band
+    - same approachable Bangalore lifestyle vibe
+  must_avoid:
+    - doll-like skin
+    - hyper-glam makeup
+    - western celebrity styling
+    - over-sharpened editorial look
