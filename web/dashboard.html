@@ -332,6 +332,20 @@
         box-shadow: none;
       }
 
+      button.success {
+        background: rgba(44, 180, 107, 0.2);
+        color: #d7ffe8;
+        border: 1px solid rgba(44, 180, 107, 0.45);
+        box-shadow: none;
+      }
+
+      button.error {
+        background: rgba(201, 70, 62, 0.2);
+        color: #ffd8d4;
+        border: 1px solid rgba(201, 70, 62, 0.45);
+        box-shadow: none;
+      }
+
       button.ghost {
         background: transparent;
         box-shadow: none;
@@ -361,6 +375,59 @@
         margin-top: 12px;
         color: var(--muted);
         font-size: 13px;
+      }
+
+      .page-loader {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(5, 8, 14, 0.72);
+        backdrop-filter: blur(10px);
+        z-index: 1000;
+        padding: 24px;
+      }
+
+      .page-loader.visible {
+        display: flex;
+      }
+
+      .page-loader-card {
+        width: min(420px, 100%);
+        border-radius: 28px;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: linear-gradient(180deg, rgba(20, 24, 34, 0.96), rgba(10, 13, 20, 0.98));
+        box-shadow: 0 20px 80px rgba(0,0,0,0.45);
+        padding: 28px 24px;
+        text-align: center;
+      }
+
+      .page-loader-spinner {
+        width: 52px;
+        height: 52px;
+        margin: 0 auto 18px;
+        border-radius: 999px;
+        border: 3px solid rgba(255,255,255,0.12);
+        border-top-color: var(--accent);
+        animation: spin 0.9s linear infinite;
+      }
+
+      .page-loader-title {
+        font-size: 24px;
+        font-weight: 700;
+      }
+
+      .page-loader-copy {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.65;
+      }
+
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
       }
 
       .field-help {
@@ -1052,6 +1119,15 @@
     </style>
   </head>
   <body>
+    <div class="page-loader" id="pageLoader" aria-live="polite" aria-busy="true">
+      <div class="page-loader-card">
+        <div class="page-loader-spinner"></div>
+        <div class="page-loader-title" id="pageLoaderTitle">Submitting Run</div>
+        <div class="page-loader-copy" id="pageLoaderCopy">
+          Your request is being sent to the gateway and queued in ComfyUI. Please wait.
+        </div>
+      </div>
+    </div>
     <div class="shell">
       <div class="topbar">
         <div class="brand">
@@ -1091,7 +1167,26 @@
               </div>
 
               <div class="field">
-                <label for="referenceImage">Reference Image</label>
+                <label for="faceReferenceImage">Anchor Face Reference</label>
+                <div class="file-row">
+                  <input id="faceReferenceImage" type="file" accept="image/png,image/jpeg,image/webp">
+                  <button id="clearFaceReferenceImageBtn" class="ghost" type="button">Clear</button>
+                </div>
+                <div class="file-row" style="margin-top:10px;">
+                  <input id="faceReferenceImageUrl" type="url" placeholder="Paste public Instagram post or direct image URL">
+                  <button id="fetchFaceReferenceImageBtn" class="secondary" type="button">Fetch Link</button>
+                </div>
+                <div class="field-help" id="faceReferenceImageHint">
+                  Upload a clean face photo of your anchor when the workflow supports face identity locking.
+                </div>
+                <div class="file-chip" id="faceReferenceImageChip" hidden>
+                  <strong>Face Ref</strong>
+                  <span id="faceReferenceImageName">None</span>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="referenceImage">Scene Reference Image</label>
                 <div class="file-row">
                   <input id="referenceImage" type="file" accept="image/png,image/jpeg,image/webp">
                   <button id="clearReferenceImageBtn" class="ghost" type="button">Clear</button>
@@ -1101,10 +1196,10 @@
                   <button id="fetchReferenceImageBtn" class="secondary" type="button">Fetch Link</button>
                 </div>
                 <div class="field-help" id="referenceImageHint">
-                  Upload a reference still, or paste a public Instagram post link and fetch its preview image when the workflow supports image guidance.
+                  Upload a reference still, or paste a public Instagram post link and fetch its preview image when the workflow supports scene guidance.
                 </div>
                 <div class="file-chip" id="referenceImageChip" hidden>
-                  <strong>Reference</strong>
+                  <strong>Scene Ref</strong>
                   <span id="referenceImageName">None</span>
                 </div>
               </div>
@@ -1459,6 +1554,7 @@
         detailRun: null,
         currentWorkflow: "",
         workflows: [],
+        faceReferenceImageFilename: "",
         referenceImageFilename: "",
         comfyuiBrowserUrl: "",
       };
@@ -1467,6 +1563,13 @@
       const rememberTokenCheckbox = document.getElementById("rememberToken");
       const workflowSelect = document.getElementById("workflow");
       const workflowCapabilities = document.getElementById("workflowCapabilities");
+      const faceReferenceImageInput = document.getElementById("faceReferenceImage");
+      const faceReferenceImageUrlInput = document.getElementById("faceReferenceImageUrl");
+      const fetchFaceReferenceImageBtn = document.getElementById("fetchFaceReferenceImageBtn");
+      const clearFaceReferenceImageBtn = document.getElementById("clearFaceReferenceImageBtn");
+      const faceReferenceImageHint = document.getElementById("faceReferenceImageHint");
+      const faceReferenceImageChip = document.getElementById("faceReferenceImageChip");
+      const faceReferenceImageName = document.getElementById("faceReferenceImageName");
       const referenceImageInput = document.getElementById("referenceImage");
       const referenceImageUrlInput = document.getElementById("referenceImageUrl");
       const fetchReferenceImageBtn = document.getElementById("fetchReferenceImageBtn");
@@ -1504,6 +1607,9 @@
       const workflowChip = document.getElementById("workflowChip");
       const prefixChip = document.getElementById("prefixChip");
       const scrollToGalleryBtn = document.getElementById("scrollToGalleryBtn");
+      const pageLoader = document.getElementById("pageLoader");
+      const pageLoaderTitle = document.getElementById("pageLoaderTitle");
+      const pageLoaderCopy = document.getElementById("pageLoaderCopy");
       const promptSectionInputs = {
         identity: positiveIdentityInput,
         composition: positiveCompositionInput,
@@ -1550,6 +1656,20 @@
         }
       }
 
+      function setPageLoader(visible, title = "Submitting Run", copy = "Your request is being sent to the gateway and queued in ComfyUI. Please wait.") {
+        pageLoader.classList.toggle("visible", visible);
+        pageLoaderTitle.textContent = title;
+        pageLoaderCopy.textContent = copy;
+        document.body.style.overflow = visible ? "hidden" : "";
+      }
+
+      function setActionButtonState(button, kind, label) {
+        button.classList.remove("success", "error");
+        if (kind === "success") button.classList.add("success");
+        if (kind === "error") button.classList.add("error");
+        button.textContent = label;
+      }
+
       async function fetchJson(path, options = {}) {
         const response = await fetch(path, options);
         const data = await response.json();
@@ -1579,6 +1699,21 @@
           .replaceAll('"', "&quot;");
       }
 
+      function formatIstDateTime(value) {
+        if (!value) return "";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return value;
+        return new Intl.DateTimeFormat("en-IN", {
+          timeZone: "Asia/Kolkata",
+          year: "numeric",
+          month: "short",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        }).format(date);
+      }
+
       function statusBadge(status) {
         const safe = String(status || "unknown");
         return `<span class="state ${safe}">${safe}</span>`;
@@ -1605,21 +1740,64 @@
         return Boolean(workflow?.defaults?.supports_reference_image);
       }
 
+      function workflowSupportsSceneReferenceImage(workflow) {
+        return Boolean(workflow?.defaults?.supports_scene_reference_image);
+      }
+
+      function workflowSupportsFaceReferenceImage(workflow) {
+        return Boolean(workflow?.defaults?.supports_face_reference_image);
+      }
+
+      function workflowLocksFaceReference(workflow) {
+        return Boolean(workflow?.defaults?.lock_face_reference_to_workflow);
+      }
+
       function updateReferenceImageUi() {
         const workflow = currentWorkflowDefinition();
-        const supportsReference = workflowSupportsReferenceImage(workflow);
-        workflowCapabilities.textContent = supportsReference
-          ? "This workflow accepts a reference image and uses it as the starting composition."
-          : "This workflow is text-first only right now. Reference image upload is disabled until you choose an img2img workflow.";
-        referenceImageInput.disabled = !supportsReference;
-        referenceImageUrlInput.disabled = !supportsReference;
-        fetchReferenceImageBtn.disabled = !supportsReference;
-        clearReferenceImageBtn.disabled = !supportsReference && !state.referenceImageFilename;
-        referenceImageHint.textContent = supportsReference
+        const supportsSceneReference = workflowSupportsSceneReferenceImage(workflow);
+        const supportsFaceReference = workflowSupportsFaceReferenceImage(workflow);
+        const lockFaceReference = workflowLocksFaceReference(workflow);
+        const anchorFaceImage = workflow?.defaults?.anchor_face_image || "";
+        workflowCapabilities.textContent = supportsFaceReference && supportsSceneReference
+          ? "This workflow supports both an anchor face reference and a separate scene reference."
+          : supportsFaceReference && lockFaceReference
+          ? "This workflow keeps the anchor face locked to the workflow itself. Uploaded images should be treated as inspiration only."
+          : supportsFaceReference
+          ? "This workflow uses a dedicated anchor face reference to preserve identity. Clothes and background should come from your prompt."
+          : supportsSceneReference
+          ? "This workflow uses a scene reference as the starting composition, so pose, clothes, and background will stay closer to the uploaded image."
+          : "This workflow is text-first only right now. Reference uploads are disabled until you choose a guided workflow.";
+
+        faceReferenceImageInput.disabled = !supportsFaceReference || lockFaceReference;
+        faceReferenceImageUrlInput.disabled = !supportsFaceReference || lockFaceReference;
+        fetchFaceReferenceImageBtn.disabled = !supportsFaceReference || lockFaceReference;
+        clearFaceReferenceImageBtn.disabled = !supportsFaceReference || lockFaceReference || !state.faceReferenceImageFilename;
+        faceReferenceImageHint.textContent = supportsFaceReference && lockFaceReference
+          ? "This workflow has a locked anchor face image. It will always use that face reference and ignore user replacements."
+          : supportsFaceReference
+          ? "Upload a clean anchor face photo, or fetch one from a public link, to lock face identity for this workflow."
+          : "Pick a workflow with face identity support to enable anchor face upload.";
+        faceReferenceImageChip.hidden = !(lockFaceReference ? anchorFaceImage : state.faceReferenceImageFilename);
+        faceReferenceImageName.textContent = lockFaceReference ? anchorFaceImage : (state.faceReferenceImageFilename || "None");
+
+        referenceImageInput.disabled = !supportsSceneReference;
+        referenceImageUrlInput.disabled = !supportsSceneReference;
+        fetchReferenceImageBtn.disabled = !supportsSceneReference;
+        clearReferenceImageBtn.disabled = !supportsSceneReference && !state.referenceImageFilename;
+        referenceImageHint.textContent = supportsSceneReference
           ? "Upload a still image, or paste a public Instagram post link to steer pose and composition for this workflow."
-          : "Pick a workflow with image guidance to enable reference upload. Video support will come in a later motion workflow.";
+          : "Pick a workflow with scene guidance to enable scene reference upload.";
         referenceImageChip.hidden = !state.referenceImageFilename;
         referenceImageName.textContent = state.referenceImageFilename || "None";
+        if (!supportsSceneReference) {
+          setActionButtonState(fetchReferenceImageBtn, "", "Fetch Link");
+        }
+        if (!supportsFaceReference) {
+          setActionButtonState(fetchFaceReferenceImageBtn, "", "Fetch Link");
+        }
+        if (lockFaceReference) {
+          setActionButtonState(fetchFaceReferenceImageBtn, "", "Locked");
+        }
       }
 
       function fillFormFromWorkflow(workflowName) {
@@ -1664,7 +1842,7 @@
         };
       }
 
-      async function uploadReferenceImage(file) {
+      async function uploadReferenceImage(file, role = "scene") {
         const buffer = await file.arrayBuffer();
         const bytes = new Uint8Array(buffer);
         let binary = "";
@@ -1681,24 +1859,36 @@
             content_base64: contentBase64,
           }),
         });
-        state.referenceImageFilename = data.filename || "";
+        if (role === "face") {
+          state.faceReferenceImageFilename = data.filename || "";
+          setActionButtonState(fetchFaceReferenceImageBtn, "", "Fetch Link");
+        } else {
+          state.referenceImageFilename = data.filename || "";
+          setActionButtonState(fetchReferenceImageBtn, "", "Fetch Link");
+        }
         updateReferenceImageUi();
-        submitStatus.textContent = state.referenceImageFilename
-          ? `Uploaded reference image ${state.referenceImageFilename}.`
-          : "Reference image uploaded.";
+        const name = role === "face" ? state.faceReferenceImageFilename : state.referenceImageFilename;
+        submitStatus.textContent = name
+          ? `Uploaded ${role === "face" ? "anchor face" : "scene"} reference image ${name}.`
+          : `${role === "face" ? "Anchor face" : "Scene"} reference image uploaded.`;
       }
 
-      async function uploadReferenceImageFromUrl(url) {
+      async function uploadReferenceImageFromUrl(url, role = "scene") {
         const data = await fetchJson("/upload/reference-url", {
           method: "POST",
           headers: authHeaders(true),
           body: JSON.stringify({ url }),
         });
-        state.referenceImageFilename = data.filename || "";
+        if (role === "face") {
+          state.faceReferenceImageFilename = data.filename || "";
+        } else {
+          state.referenceImageFilename = data.filename || "";
+        }
         updateReferenceImageUi();
-        submitStatus.textContent = state.referenceImageFilename
-          ? `Fetched reference image ${state.referenceImageFilename}.`
-          : "Reference image fetched.";
+        const name = role === "face" ? state.faceReferenceImageFilename : state.referenceImageFilename;
+        submitStatus.textContent = name
+          ? `Fetched ${role === "face" ? "anchor face" : "scene"} reference image ${name}.`
+          : `${role === "face" ? "Anchor face" : "Scene"} reference image fetched.`;
       }
 
       async function loadWorkflows() {
@@ -1743,6 +1933,11 @@
 
       async function submitRun() {
         submitStatus.textContent = "Submitting run...";
+        setPageLoader(
+          true,
+          "Submitting Run",
+          "Sending your workflow to the gateway, uploading prompt overrides, and waiting for the run to be accepted."
+        );
         await withButtonBusy(submitBtn, "Submitting...", async () => {
           try {
             const overrides = {};
@@ -1754,11 +1949,17 @@
             if (batchSizeInput.value.trim()) overrides.batch_size = Number(batchSizeInput.value.trim());
             overrides.positive_prompt_sections = positivePromptSectionsPayload();
             if (negativePromptInput.value.trim()) overrides.negative_prompt = negativePromptInput.value.trim();
-            if (workflowSupportsReferenceImage(workflow)) {
-              if (!state.referenceImageFilename) {
-                throw new Error("Upload a reference image before submitting this workflow.");
+            if (workflowSupportsFaceReferenceImage(workflow) && !workflowLocksFaceReference(workflow)) {
+              if (!state.faceReferenceImageFilename) {
+                throw new Error("Upload an anchor face reference image before submitting this workflow.");
               }
-              overrides.reference_image = state.referenceImageFilename;
+              overrides.face_reference_image = state.faceReferenceImageFilename;
+            }
+            if (workflowSupportsSceneReferenceImage(workflow)) {
+              if (!state.referenceImageFilename) {
+                throw new Error("Upload a scene reference image before submitting this workflow.");
+              }
+              overrides.scene_reference_image = state.referenceImageFilename;
             }
 
             const data = await fetchJson("/generate", {
@@ -1773,6 +1974,8 @@
             await loadRunDetail(data.prompt_id);
           } catch (error) {
             submitStatus.textContent = error.message;
+          } finally {
+            setPageLoader(false);
           }
         });
       }
@@ -1887,6 +2090,7 @@
           const firstOutput = run.outputs && run.outputs.length ? run.outputs[0] : null;
           const title = firstOutput?.filename || run.workflow_name || "workflow";
           const selected = state.selectedPromptId === run.prompt_id ? "selected" : "";
+          const submittedAtIst = formatIstDateTime(run.submitted_at || "");
           return `
             <article class="run-card ${selected}" data-detail="${run.prompt_id}">
               <div class="run-preview" data-preview="${firstOutput ? firstOutput.download_url : ""}">
@@ -1903,7 +2107,7 @@
                 <div class="run-title">
                   <div>
                     <strong>${escapeHtml(title)}</strong>
-                    <span>${escapeHtml(run.completed_at || "")}</span>
+                    <span>${escapeHtml(submittedAtIst)}</span>
                   </div>
                 </div>
                 <div class="run-filename">${escapeHtml(run.workflow_name || "workflow")}</div>
@@ -2143,13 +2347,64 @@
         state.currentWorkflow = workflowSelect.value || "";
         fillFormFromWorkflow(state.currentWorkflow);
       });
+      faceReferenceImageInput.addEventListener("change", async () => {
+        const file = faceReferenceImageInput.files && faceReferenceImageInput.files[0];
+        if (!file) return;
+        const workflow = currentWorkflowDefinition();
+        if (workflowLocksFaceReference(workflow)) return;
+        await withButtonBusy(fetchFaceReferenceImageBtn, "Uploading...", async () => {
+          try {
+            submitStatus.textContent = "Uploading anchor face reference image...";
+            await uploadReferenceImage(file, "face");
+          } catch (error) {
+            submitStatus.textContent = error.message;
+          }
+        });
+      });
+      fetchFaceReferenceImageBtn.addEventListener("click", async () => {
+        const url = faceReferenceImageUrlInput.value.trim();
+        const workflow = currentWorkflowDefinition();
+        if (workflowLocksFaceReference(workflow)) {
+          submitStatus.textContent = "This workflow keeps the anchor face locked and ignores user face uploads.";
+          return;
+        }
+        if (!url) {
+          setActionButtonState(fetchFaceReferenceImageBtn, "error", "Need Link");
+          submitStatus.textContent = "Paste a public Instagram post link or direct image URL for the anchor face first.";
+          return;
+        }
+        setActionButtonState(fetchFaceReferenceImageBtn, "", "Fetch Link");
+        await withButtonBusy(fetchFaceReferenceImageBtn, "Fetching...", async () => {
+          try {
+            submitStatus.textContent = "Fetching anchor face reference image from link...";
+            await uploadReferenceImageFromUrl(url, "face");
+            setActionButtonState(fetchFaceReferenceImageBtn, "success", "Fetched");
+          } catch (error) {
+            setActionButtonState(fetchFaceReferenceImageBtn, "error", "Failed");
+            submitStatus.textContent = error.message;
+          }
+        });
+      });
+      clearFaceReferenceImageBtn.addEventListener("click", () => {
+        const workflow = currentWorkflowDefinition();
+        if (workflowLocksFaceReference(workflow)) {
+          submitStatus.textContent = "This workflow keeps the anchor face locked and cannot clear it from the UI.";
+          return;
+        }
+        state.faceReferenceImageFilename = "";
+        faceReferenceImageInput.value = "";
+        faceReferenceImageUrlInput.value = "";
+        setActionButtonState(fetchFaceReferenceImageBtn, "", "Fetch Link");
+        updateReferenceImageUi();
+        submitStatus.textContent = "Cleared anchor face reference image.";
+      });
       referenceImageInput.addEventListener("change", async () => {
         const file = referenceImageInput.files && referenceImageInput.files[0];
         if (!file) return;
         await withButtonBusy(fetchReferenceImageBtn, "Uploading...", async () => {
           try {
-            submitStatus.textContent = "Uploading reference image...";
-            await uploadReferenceImage(file);
+            submitStatus.textContent = "Uploading scene reference image...";
+            await uploadReferenceImage(file, "scene");
           } catch (error) {
             submitStatus.textContent = error.message;
           }
@@ -2158,14 +2413,18 @@
       fetchReferenceImageBtn.addEventListener("click", async () => {
         const url = referenceImageUrlInput.value.trim();
         if (!url) {
-          submitStatus.textContent = "Paste a public Instagram post link or direct image URL first.";
+          setActionButtonState(fetchReferenceImageBtn, "error", "Need Link");
+          submitStatus.textContent = "Paste a public Instagram post link or direct image URL for the scene reference first.";
           return;
         }
+        setActionButtonState(fetchReferenceImageBtn, "", "Fetch Link");
         await withButtonBusy(fetchReferenceImageBtn, "Fetching...", async () => {
           try {
-            submitStatus.textContent = "Fetching reference image from link...";
-            await uploadReferenceImageFromUrl(url);
+            submitStatus.textContent = "Fetching scene reference image from link...";
+            await uploadReferenceImageFromUrl(url, "scene");
+            setActionButtonState(fetchReferenceImageBtn, "success", "Fetched");
           } catch (error) {
+            setActionButtonState(fetchReferenceImageBtn, "error", "Failed");
             submitStatus.textContent = error.message;
           }
         });
@@ -2174,8 +2433,9 @@
         state.referenceImageFilename = "";
         referenceImageInput.value = "";
         referenceImageUrlInput.value = "";
+        setActionButtonState(fetchReferenceImageBtn, "", "Fetch Link");
         updateReferenceImageUi();
-        submitStatus.textContent = "Cleared reference image.";
+        submitStatus.textContent = "Cleared scene reference image.";
       });
       filenamePrefixInput.addEventListener("input", updateComposerChips);
       autoRefreshCheckbox.addEventListener("change", updateAutoRefresh);

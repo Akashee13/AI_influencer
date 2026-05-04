@@ -622,25 +622,101 @@ def list_workflow_files() -> list[str]:
     return sorted(path.name for path in WORKFLOW_DIR.glob("*.json"))
 
 
+def workflow_extra(workflow: dict[str, Any]) -> dict[str, Any]:
+    extra = workflow.get("extra", {})
+    return extra if isinstance(extra, dict) else {}
+
+
+def workflow_input_roles(workflow: dict[str, Any]) -> dict[str, list[int]]:
+    extra = workflow_extra(workflow)
+    raw_roles = extra.get("input_roles", {})
+    if not isinstance(raw_roles, dict):
+        return {}
+
+    roles: dict[str, list[int]] = {}
+    for key, value in raw_roles.items():
+        if isinstance(value, int):
+            roles[str(key)] = [value]
+        elif isinstance(value, list):
+            resolved = [int(item) for item in value if isinstance(item, int)]
+            if resolved:
+                roles[str(key)] = resolved
+    return roles
+
+
+def workflow_anchor_face_image(workflow: dict[str, Any]) -> str:
+    extra = workflow_extra(workflow)
+    value = extra.get("anchor_face_image", "")
+    return str(value).strip() if value else ""
+
+
+def workflow_anchor_face_source(workflow: dict[str, Any]) -> str:
+    extra = workflow_extra(workflow)
+    value = extra.get("anchor_face_source", "")
+    return str(value).strip() if value else ""
+
+
+def ensure_input_asset(target_filename: str, source_relative_path: str) -> str:
+    source_path = (ROOT / source_relative_path).resolve()
+    if not source_path.exists() or not source_path.is_file():
+        raise WorkflowError(f"workflow anchor face source not found: {source_path}")
+    if source_path.suffix.lower() not in ALLOWED_REFERENCE_SUFFIXES:
+        raise WorkflowError(f"unsupported workflow anchor face source type: {source_path.suffix}")
+    COMFYUI_INPUT_DIR.mkdir(parents=True, exist_ok=True)
+    destination = COMFYUI_INPUT_DIR / target_filename
+    if not destination.exists() or source_path.stat().st_mtime > destination.stat().st_mtime:
+        destination.write_bytes(source_path.read_bytes())
+    return target_filename
+
+
+def workflow_prompt_section_defaults(workflow: dict[str, Any], positive_prompt: str) -> dict[str, str]:
+    extra = workflow_extra(workflow)
+    raw_sections = extra.get("prompt_sections_defaults", {})
+    if isinstance(raw_sections, dict):
+        sections = {
+            key: str(raw_sections.get(key, "")).strip()
+            for key in PROMPT_SECTION_KEYS
+        }
+        if any(sections.values()):
+            return sections
+    return split_positive_prompt_sections(positive_prompt)
+
+
 def workflow_defaults(path: Path) -> dict[str, Any]:
     workflow = load_json(path)
     nodes_by_type = {node["type"]: node for node in workflow.get("nodes", [])}
-    extra = workflow.get("extra", {}) if isinstance(workflow.get("extra", {}), dict) else {}
+    extra = workflow_extra(workflow)
     ui_defaults = extra.get("ui_defaults", {}) if isinstance(extra.get("ui_defaults", {}), dict) else {}
+    input_roles = workflow_input_roles(workflow)
 
     latent = nodes_by_type.get("EmptyLatentImage", {})
+    if not latent:
+        latent = nodes_by_type.get("EmptySD3LatentImage", {})
     sampler = nodes_by_type.get("KSampler", {})
+    random_noise = nodes_by_type.get("RandomNoise", {})
+    scheduler_node = nodes_by_type.get("BasicScheduler", {})
+    sampler_select = nodes_by_type.get("KSamplerSelect", {})
     save = nodes_by_type.get("SaveImage", {})
     load_image = nodes_by_type.get("LoadImage", {})
     positive_node, negative_node = resolve_prompt_nodes(workflow)
 
     latent_widgets = list(latent.get("widgets_values", []))
     sampler_widgets = list(sampler.get("widgets_values", []))
+    random_noise_widgets = list(random_noise.get("widgets_values", []))
+    scheduler_widgets = list(scheduler_node.get("widgets_values", []))
+    sampler_select_widgets = list(sampler_select.get("widgets_values", []))
     save_widgets = list(save.get("widgets_values", []))
     load_image_widgets = list(load_image.get("widgets_values", []))
 
     positive_prompt = positive_node["widgets_values"][0] if positive_node.get("widgets_values") else ""
     negative_prompt = negative_node["widgets_values"][0] if negative_node.get("widgets_values") else ""
+    supports_face_reference = bool(input_roles.get("face_reference_image"))
+    supports_scene_reference = bool(input_roles.get("scene_reference_image"))
+    anchor_face_image = workflow_anchor_face_image(workflow)
+    anchor_face_source = workflow_anchor_face_source(workflow)
+    lock_face_reference_to_workflow = bool(anchor_face_image and supports_face_reference)
+    if load_image and not (supports_face_reference or supports_scene_reference):
+        supports_scene_reference = True
 
     return {
         "name": path.name,
@@ -648,18 +724,50 @@ def workflow_defaults(path: Path) -> dict[str, Any]:
             "width": ui_defaults.get("width", latent_widgets[0] if len(latent_widgets) > 0 else None),
             "height": ui_defaults.get("height", latent_widgets[1] if len(latent_widgets) > 1 else None),
             "batch_size": ui_defaults.get("batch_size", latent_widgets[2] if len(latent_widgets) > 2 else None),
-            "seed": sampler_widgets[0] if len(sampler_widgets) > 0 else None,
-            "control_after_generate": sampler_widgets[1] if len(sampler_widgets) > 1 else None,
-            "steps": sampler_widgets[2] if len(sampler_widgets) > 2 else None,
-            "cfg": sampler_widgets[3] if len(sampler_widgets) > 3 else None,
-            "sampler": sampler_widgets[4] if len(sampler_widgets) > 4 else None,
-            "scheduler": sampler_widgets[5] if len(sampler_widgets) > 5 else None,
-            "denoise": sampler_widgets[6] if len(sampler_widgets) > 6 else None,
+            "seed": (
+                sampler_widgets[0] if len(sampler_widgets) > 0 else
+                random_noise_widgets[0] if len(random_noise_widgets) > 0 else
+                None
+            ),
+            "control_after_generate": (
+                sampler_widgets[1] if len(sampler_widgets) > 1 else
+                random_noise_widgets[1] if len(random_noise_widgets) > 1 else
+                None
+            ),
+            "steps": (
+                sampler_widgets[2] if len(sampler_widgets) > 2 else
+                scheduler_widgets[1] if len(scheduler_widgets) > 1 else
+                None
+            ),
+            "cfg": (
+                sampler_widgets[3] if len(sampler_widgets) > 3 else
+                nodes_by_type.get("FluxGuidance", {}).get("widgets_values", [None])[0]
+            ),
+            "sampler": (
+                sampler_widgets[4] if len(sampler_widgets) > 4 else
+                sampler_select_widgets[0] if len(sampler_select_widgets) > 0 else
+                None
+            ),
+            "scheduler": (
+                sampler_widgets[5] if len(sampler_widgets) > 5 else
+                scheduler_widgets[0] if len(scheduler_widgets) > 0 else
+                None
+            ),
+            "denoise": (
+                sampler_widgets[6] if len(sampler_widgets) > 6 else
+                scheduler_widgets[2] if len(scheduler_widgets) > 2 else
+                None
+            ),
             "filename_prefix": save_widgets[0] if len(save_widgets) > 0 else None,
             "supports_reference_image": bool(load_image),
+            "supports_face_reference_image": supports_face_reference,
+            "supports_scene_reference_image": supports_scene_reference,
+            "lock_face_reference_to_workflow": lock_face_reference_to_workflow,
+            "anchor_face_image": anchor_face_image or (load_image_widgets[0] if len(load_image_widgets) > 0 and supports_face_reference else None),
+            "anchor_face_source": anchor_face_source or None,
             "reference_image": load_image_widgets[0] if len(load_image_widgets) > 0 else None,
             "positive_prompt": positive_prompt,
-            "positive_prompt_sections": split_positive_prompt_sections(positive_prompt),
+            "positive_prompt_sections": workflow_prompt_section_defaults(workflow, positive_prompt),
             "negative_prompt": negative_prompt,
         },
     }
@@ -829,16 +937,31 @@ def input_ref(link_map: dict[int, tuple[int, int, int, int, str]], link_id: int)
 
 
 def resolve_prompt_nodes(workflow: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-    ksampler_node = find_nodes_by_type(workflow, "KSampler")[0]
+    ksampler_nodes = find_nodes_by_type(workflow, "KSampler")
     link_map = build_link_map(workflow)
     nodes = node_map(workflow)
+    if ksampler_nodes:
+        ksampler_node = ksampler_nodes[0]
+        pos_link = next(inp for inp in ksampler_node["inputs"] if inp["name"] == "positive")["link"]
+        neg_link = next(inp for inp in ksampler_node["inputs"] if inp["name"] == "negative")["link"]
 
-    pos_link = next(inp for inp in ksampler_node["inputs"] if inp["name"] == "positive")["link"]
-    neg_link = next(inp for inp in ksampler_node["inputs"] if inp["name"] == "negative")["link"]
+        pos_node_id = link_map[pos_link][0]
+        neg_node_id = link_map[neg_link][0]
+        return nodes[int(pos_node_id)], nodes[int(neg_node_id)]
 
-    pos_node_id = link_map[pos_link][0]
-    neg_node_id = link_map[neg_link][0]
-    return nodes[int(pos_node_id)], nodes[int(neg_node_id)]
+    guider_nodes = find_nodes_by_type(workflow, "BasicGuider")
+    if guider_nodes:
+        guider_node = guider_nodes[0]
+        conditioning_link = next(inp for inp in guider_node["inputs"] if inp["name"] == "conditioning")["link"]
+        pos_node_id = link_map[conditioning_link][0]
+        positive_node = nodes[int(pos_node_id)]
+        if positive_node.get("type") == "FluxGuidance":
+            guidance_link = next(inp for inp in positive_node["inputs"] if inp["name"] == "conditioning")["link"]
+            positive_node = nodes[int(link_map[guidance_link][0])]
+        empty_negative = {"widgets_values": [""]}
+        return positive_node, empty_negative
+
+    raise WorkflowError("Could not resolve prompt nodes for locked workflow.")
 
 
 def ui_workflow_to_api_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
@@ -853,6 +976,11 @@ def ui_workflow_to_api_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
         if node_type == "CheckpointLoaderSimple":
             api_prompt[node_id] = {"class_type": node_type, "inputs": {"ckpt_name": widgets[0]}}
         elif node_type == "EmptyLatentImage":
+            api_prompt[node_id] = {
+                "class_type": node_type,
+                "inputs": {"width": widgets[0], "height": widgets[1], "batch_size": widgets[2]},
+            }
+        elif node_type == "EmptySD3LatentImage":
             api_prompt[node_id] = {
                 "class_type": node_type,
                 "inputs": {"width": widgets[0], "height": widgets[1], "batch_size": widgets[2]},
@@ -883,6 +1011,36 @@ def ui_workflow_to_api_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
                     "latent_image": input_ref(link_map, latent_link),
                 },
             }
+        elif node_type == "RandomNoise":
+            api_prompt[node_id] = {
+                "class_type": node_type,
+                "inputs": {"noise_seed": widgets[0]},
+            }
+        elif node_type == "FluxGuidance":
+            conditioning_link = next(inp for inp in node["inputs"] if inp["name"] == "conditioning")["link"]
+            api_prompt[node_id] = {
+                "class_type": node_type,
+                "inputs": {
+                    "conditioning": input_ref(link_map, conditioning_link),
+                    "guidance": widgets[0],
+                },
+            }
+        elif node_type == "KSamplerSelect":
+            api_prompt[node_id] = {
+                "class_type": node_type,
+                "inputs": {"sampler_name": widgets[0]},
+            }
+        elif node_type == "BasicScheduler":
+            model_link = next(inp for inp in node["inputs"] if inp["name"] == "model")["link"]
+            api_prompt[node_id] = {
+                "class_type": node_type,
+                "inputs": {
+                    "model": input_ref(link_map, model_link),
+                    "scheduler": widgets[0],
+                    "steps": widgets[1],
+                    "denoise": widgets[2],
+                },
+            }
         elif node_type == "LoadImage":
             image_name = widgets[0] if widgets else ""
             api_prompt[node_id] = {
@@ -891,6 +1049,54 @@ def ui_workflow_to_api_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
                     "image": image_name,
                     "upload": "image",
                 },
+            }
+        elif node_type == "PulidFluxInsightFaceLoader":
+            api_prompt[node_id] = {
+                "class_type": node_type,
+                "inputs": {"provider": widgets[0]},
+            }
+        elif node_type == "PulidFluxEvaClipLoader":
+            api_prompt[node_id] = {
+                "class_type": node_type,
+                "inputs": {},
+            }
+        elif node_type == "PulidFluxModelLoader":
+            api_prompt[node_id] = {
+                "class_type": node_type,
+                "inputs": {"pulid_file": widgets[0]},
+            }
+        elif node_type == "ApplyPulidFlux":
+            inputs: dict[str, Any] = {
+                "weight": widgets[0],
+                "start_at": widgets[1],
+                "end_at": widgets[2],
+            }
+            for input_name in ("model", "pulid_flux", "eva_clip", "face_analysis", "image", "attn_mask"):
+                link = next((inp["link"] for inp in node["inputs"] if inp["name"] == input_name), None)
+                if link is not None:
+                    inputs[input_name] = input_ref(link_map, link)
+            api_prompt[node_id] = {
+                "class_type": node_type,
+                "inputs": inputs,
+            }
+        elif node_type == "BasicGuider":
+            model_link = next(inp for inp in node["inputs"] if inp["name"] == "model")["link"]
+            conditioning_link = next(inp for inp in node["inputs"] if inp["name"] == "conditioning")["link"]
+            api_prompt[node_id] = {
+                "class_type": node_type,
+                "inputs": {
+                    "model": input_ref(link_map, model_link),
+                    "conditioning": input_ref(link_map, conditioning_link),
+                },
+            }
+        elif node_type == "SamplerCustomAdvanced":
+            inputs: dict[str, Any] = {}
+            for input_name in ("noise", "guider", "sampler", "sigmas", "latent_image"):
+                link = next(inp["link"] for inp in node["inputs"] if inp["name"] == input_name)
+                inputs[input_name] = input_ref(link_map, link)
+            api_prompt[node_id] = {
+                "class_type": node_type,
+                "inputs": inputs,
             }
         elif node_type == "VAEEncode":
             pixels_link = next(inp for inp in node["inputs"] if inp["name"] == "pixels")["link"]
@@ -912,6 +1118,31 @@ def ui_workflow_to_api_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
                     "vae": input_ref(link_map, vae_link),
                 },
             }
+        elif node_type == "UNETLoader":
+            api_prompt[node_id] = {
+                "class_type": node_type,
+                "inputs": {"unet_name": widgets[0], "weight_dtype": widgets[1]},
+            }
+        elif node_type == "VAELoader":
+            api_prompt[node_id] = {
+                "class_type": node_type,
+                "inputs": {"vae_name": widgets[0]},
+            }
+        elif node_type == "DualCLIPLoader":
+            api_prompt[node_id] = {
+                "class_type": node_type,
+                "inputs": {
+                    "clip_name1": widgets[0],
+                    "clip_name2": widgets[1],
+                    "type": widgets[2],
+                },
+            }
+        elif node_type == "PreviewImage":
+            image_link = next(inp for inp in node["inputs"] if inp["name"] == "images")["link"]
+            api_prompt[node_id] = {
+                "class_type": node_type,
+                "inputs": {"images": input_ref(link_map, image_link)},
+            }
         elif node_type == "SaveImage":
             image_link = next(inp for inp in node["inputs"] if inp["name"] == "images")["link"]
             api_prompt[node_id] = {
@@ -930,16 +1161,25 @@ def ui_workflow_to_api_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
 def apply_overrides(workflow: dict[str, Any], overrides: dict[str, Any]) -> None:
     positive_node, negative_node = resolve_prompt_nodes(workflow)
     latent_nodes = find_nodes_by_type(workflow, "EmptyLatentImage")
-    ksampler_node = find_nodes_by_type(workflow, "KSampler")[0]
-    save_node = find_nodes_by_type(workflow, "SaveImage")[0]
+    if not latent_nodes:
+        latent_nodes = find_nodes_by_type(workflow, "EmptySD3LatentImage")
+    ksampler_nodes = find_nodes_by_type(workflow, "KSampler")
+    random_noise_nodes = find_nodes_by_type(workflow, "RandomNoise")
+    scheduler_nodes = find_nodes_by_type(workflow, "BasicScheduler")
+    flux_guidance_nodes = find_nodes_by_type(workflow, "FluxGuidance")
+    save_nodes = find_nodes_by_type(workflow, "SaveImage")
     load_image_nodes = find_nodes_by_type(workflow, "LoadImage")
+    nodes_by_id = node_map(workflow)
+    input_roles = workflow_input_roles(workflow)
+    locked_anchor_face_image = workflow_anchor_face_image(workflow)
+    locked_anchor_face_source = workflow_anchor_face_source(workflow)
 
     merged_positive_prompt = overrides.get("positive_prompt")
     if not merged_positive_prompt and "positive_prompt_sections" in overrides:
         merged_positive_prompt = merge_positive_prompt_sections(overrides.get("positive_prompt_sections"))
     if merged_positive_prompt:
         positive_node["widgets_values"][0] = merged_positive_prompt
-    if "negative_prompt" in overrides:
+    if "negative_prompt" in overrides and negative_node.get("widgets_values"):
         negative_node["widgets_values"][0] = overrides["negative_prompt"]
     if latent_nodes:
         latent_node = latent_nodes[0]
@@ -950,26 +1190,75 @@ def apply_overrides(workflow: dict[str, Any], overrides: dict[str, Any]) -> None
         if "batch_size" in overrides:
             latent_node["widgets_values"][2] = overrides["batch_size"]
 
-    k_map = {
-        "seed": 0,
-        "control_after_generate": 1,
-        "steps": 2,
-        "cfg": 3,
-        "sampler": 4,
-        "scheduler": 5,
-        "denoise": 6,
-    }
-    for key, idx in k_map.items():
-        if key in overrides:
-            value = overrides[key]
-            if key == "seed" and (value is None or value == ""):
-                value = random_seed()
-            ksampler_node["widgets_values"][idx] = value
+    if ksampler_nodes:
+        ksampler_node = ksampler_nodes[0]
+        k_map = {
+            "seed": 0,
+            "control_after_generate": 1,
+            "steps": 2,
+            "cfg": 3,
+            "sampler": 4,
+            "scheduler": 5,
+            "denoise": 6,
+        }
+        for key, idx in k_map.items():
+            if key in overrides:
+                value = overrides[key]
+                if key == "seed" and (value is None or value == ""):
+                    value = random_seed()
+                ksampler_node["widgets_values"][idx] = value
 
-    if "filename_prefix" in overrides:
-        save_node["widgets_values"][0] = overrides["filename_prefix"]
-    if "reference_image" in overrides and load_image_nodes:
-        load_image_nodes[0]["widgets_values"][0] = overrides["reference_image"]
+    if random_noise_nodes:
+        random_noise_node = random_noise_nodes[0]
+        if "seed" in overrides:
+            seed_value = overrides["seed"]
+            if seed_value is None or seed_value == "":
+                seed_value = random_seed()
+            random_noise_node["widgets_values"][0] = seed_value
+        if "control_after_generate" in overrides:
+            random_noise_node["widgets_values"][1] = overrides["control_after_generate"]
+
+    if scheduler_nodes:
+        scheduler_node = scheduler_nodes[0]
+        if "scheduler" in overrides:
+            scheduler_node["widgets_values"][0] = overrides["scheduler"]
+        if "steps" in overrides:
+            scheduler_node["widgets_values"][1] = overrides["steps"]
+        if "denoise" in overrides:
+            scheduler_node["widgets_values"][2] = overrides["denoise"]
+
+    if flux_guidance_nodes and "cfg" in overrides:
+        flux_guidance_nodes[0]["widgets_values"][0] = overrides["cfg"]
+
+    if save_nodes and "filename_prefix" in overrides:
+        save_nodes[0]["widgets_values"][0] = overrides["filename_prefix"]
+
+    def assign_load_image(role_key: str, filename: Any) -> bool:
+        if not filename:
+            return False
+        node_ids = input_roles.get(role_key, [])
+        if not node_ids and role_key == "scene_reference_image" and load_image_nodes:
+            load_image_nodes[0]["widgets_values"][0] = filename
+            return True
+        assigned = False
+        for node_id in node_ids:
+            node = nodes_by_id.get(int(node_id))
+            if node and node.get("type") == "LoadImage":
+                node["widgets_values"][0] = filename
+                assigned = True
+        return assigned
+
+    legacy_reference = overrides.get("reference_image")
+    if legacy_reference is not None:
+        assign_load_image("scene_reference_image", legacy_reference)
+    if "scene_reference_image" in overrides:
+        assign_load_image("scene_reference_image", overrides["scene_reference_image"])
+    if locked_anchor_face_image:
+        if locked_anchor_face_source:
+            ensure_input_asset(locked_anchor_face_image, locked_anchor_face_source)
+        assign_load_image("face_reference_image", locked_anchor_face_image)
+    elif "face_reference_image" in overrides:
+        assign_load_image("face_reference_image", overrides["face_reference_image"])
 
 
 def wait_for_history(prompt_id: str, timeout_s: int) -> dict[str, Any]:
