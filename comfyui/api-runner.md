@@ -22,7 +22,7 @@ The script:
 Keep the SSH tunnel to the VM open, then run from this repo:
 
 ```bash
-python3 scripts/comfyui_generate.py --wait
+python3 scripts/comfyui_generate.py
 ```
 
 That will submit the locked `mumbai-yoga-anchor-v1.json` workflow as-is.
@@ -34,8 +34,7 @@ python3 scripts/comfyui_generate.py \
   --positive-prompt "ultra realistic mirror selfie photo of the same face identity as the selected Indian yoga instructor anchor, premium Indian wellness creator look, fair-light wheatish Indian skin with warm golden undertones, distinctly Indian facial features, deep black-brown Indian eyes, fit toned feminine body, black athletic sports bra, taupe high-waisted yoga leggings, upscale apartment mirror selfie, realistic smartphone photo, natural daylight, sharp focus, crisp facial details" \
   --negative-prompt "western celebrity face, generic international model face, non-Indian face, plastic skin, glossy skin, over-smoothed skin, blurry, blur, out of focus, soft focus, bad anatomy, cartoon, illustration" \
   --control-after-generate fixed \
-  --filename-prefix mumbai-yoga-mirror \
-  --wait
+  --filename-prefix mumbai-yoga-mirror
 ```
 
 ## Useful overrides
@@ -68,3 +67,5 @@ This script talks to `127.0.0.1:8188`, so your SSH tunnel must stay open:
 ```bash
 gcloud compute ssh instance-20260501-111318 --zone asia-east1-c --project pet-slay -- -L 8188:127.0.0.1:8188
 ```
+
+Use `--wait` only when you explicitly want the CLI to block until the run is finished. For the VM gateway API, prefer async submit plus polling.

@@ -6,7 +6,8 @@ This service exposes a minimal HTTP API that:
 - loads a locked ComfyUI workflow JSON
 - applies prompt/setting overrides
 - submits to local ComfyUI on 127.0.0.1:8188
-- optionally waits for completion
+- returns prompt IDs immediately for async polling
+- optionally waits for completion when explicitly requested
 
 It is intentionally stdlib-only so deployment on the VM stays simple.
 """
@@ -197,8 +198,51 @@ def wait_for_history(prompt_id: str, timeout_s: int) -> dict[str, Any]:
     raise TimeoutError(f"Timed out waiting for prompt {prompt_id}")
 
 
+def build_status(prompt_id: str) -> dict[str, Any]:
+    history_url = f"{COMFYUI_URL.rstrip('/')}/history/{prompt_id}"
+    queue_url = f"{COMFYUI_URL.rstrip('/')}/queue"
+
+    try:
+        history = api_get(history_url)
+        if history:
+            return {
+                "ok": True,
+                "prompt_id": prompt_id,
+                "status": "completed",
+                "history": history,
+            }
+    except error.HTTPError as exc:
+        if exc.code != 404:
+            raise
+
+    queue = api_get(queue_url)
+    for item in queue.get("queue_running", []):
+        if len(item) > 1 and item[1] == prompt_id:
+            return {
+                "ok": True,
+                "prompt_id": prompt_id,
+                "status": "running",
+                "queue_item": item,
+            }
+
+    for item in queue.get("queue_pending", []):
+        if len(item) > 1 and item[1] == prompt_id:
+            return {
+                "ok": True,
+                "prompt_id": prompt_id,
+                "status": "pending",
+                "queue_item": item,
+            }
+
+    return {
+        "ok": True,
+        "prompt_id": prompt_id,
+        "status": "unknown",
+    }
+
+
 class Handler(BaseHTTPRequestHandler):
-    server_version = "ComfyUIGateway/0.1"
+    server_version = "ComfyUIGateway/0.2"
 
     def _send_json(self, status: int, payload: dict[str, Any]) -> None:
         body = json.dumps(payload, indent=2).encode("utf-8")
@@ -215,6 +259,12 @@ class Handler(BaseHTTPRequestHandler):
         expected = f"Bearer {API_TOKEN}"
         return header == expected
 
+    def _require_auth(self) -> bool:
+        if self._auth_ok():
+            return True
+        self._send_json(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
+        return False
+
     def do_GET(self) -> None:  # noqa: N802
         if self.path == "/healthz":
             try:
@@ -223,11 +273,45 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:  # pragma: no cover - best effort health endpoint
                 self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
             return
+
+        if not self._require_auth():
+            return
+
+        if self.path == "/queue":
+            try:
+                queue = api_get(f"{COMFYUI_URL.rstrip('/')}/queue")
+                self._send_json(HTTPStatus.OK, {"ok": True, "queue": queue})
+            except Exception as exc:
+                self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
+            return
+
+        if self.path.startswith("/history/"):
+            prompt_id = self.path.removeprefix("/history/").strip()
+            if not prompt_id:
+                self._send_json(HTTPStatus.BAD_REQUEST, {"error": "missing prompt_id"})
+                return
+            try:
+                history = api_get(f"{COMFYUI_URL.rstrip('/')}/history/{prompt_id}")
+                self._send_json(HTTPStatus.OK, {"ok": True, "prompt_id": prompt_id, "history": history})
+            except Exception as exc:
+                self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
+            return
+
+        if self.path.startswith("/status/"):
+            prompt_id = self.path.removeprefix("/status/").strip()
+            if not prompt_id:
+                self._send_json(HTTPStatus.BAD_REQUEST, {"error": "missing prompt_id"})
+                return
+            try:
+                self._send_json(HTTPStatus.OK, build_status(prompt_id))
+            except Exception as exc:
+                self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
+            return
+
         self._send_json(HTTPStatus.NOT_FOUND, {"error": "not found"})
 
     def do_POST(self) -> None:  # noqa: N802
-        if not self._auth_ok():
-            self._send_json(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
+        if not self._require_auth():
             return
 
         if self.path != "/generate":
@@ -263,8 +347,10 @@ class Handler(BaseHTTPRequestHandler):
                 "workflow": workflow_name,
                 "client_id": client_id,
                 "prompt_id": response.get("prompt_id"),
+                "status": "submitted",
             }
             if wait and result["prompt_id"]:
+                result["status"] = "completed"
                 result["history"] = wait_for_history(result["prompt_id"], timeout_s)
             self._send_json(HTTPStatus.OK, result)
         except Exception as exc:

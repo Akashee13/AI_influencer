@@ -48,7 +48,7 @@ From your laptop:
 curl http://VM_EXTERNAL_IP:9000/healthz
 ```
 
-## Generate
+## Submit
 
 From your laptop:
 
@@ -58,15 +58,54 @@ curl -X POST http://VM_EXTERNAL_IP:9000/generate \
   -H 'Authorization: Bearer replace-with-a-long-random-token' \
   -d '{
     "workflow": "mumbai-yoga-anchor-v1.json",
-    "wait": true,
     "overrides": {
       "filename_prefix": "mumbai-yoga-mirror",
       "positive_prompt": "ultra realistic mirror selfie photo of the same face identity as the selected Indian yoga instructor anchor, premium Indian wellness creator look, fair-light wheatish Indian skin with warm golden undertones, distinctly Indian facial features, deep black-brown Indian eyes, fit toned feminine body, black athletic sports bra, taupe high-waisted yoga leggings, upscale apartment mirror selfie, realistic smartphone photo, natural daylight, sharp focus, crisp facial details",
       "negative_prompt": "western celebrity face, generic international model face, non-Indian face, plastic skin, glossy skin, over-smoothed skin, blurry, blur, out of focus, soft focus, bad anatomy, cartoon, illustration",
-      "control_after_generate": "fixed",
       "seed": 774215085774890
     }
   }'
+```
+
+Expected response:
+
+```json
+{
+  "ok": true,
+  "workflow": "mumbai-yoga-anchor-v1.json",
+  "client_id": "...",
+  "prompt_id": "...",
+  "status": "submitted"
+}
+```
+
+## Poll status
+
+```bash
+curl -H 'Authorization: Bearer replace-with-a-long-random-token' \
+  http://VM_EXTERNAL_IP:9000/status/PROMPT_ID
+```
+
+Suggested backoff for long-running jobs:
+
+1. start at `5s`
+2. double each time
+3. cap at `60s`
+
+Example sequence: `5s`, `10s`, `20s`, `40s`, `60s`, `60s`...
+
+## Inspect history
+
+```bash
+curl -H 'Authorization: Bearer replace-with-a-long-random-token' \
+  http://VM_EXTERNAL_IP:9000/history/PROMPT_ID
+```
+
+## Inspect queue
+
+```bash
+curl -H 'Authorization: Bearer replace-with-a-long-random-token' \
+  http://VM_EXTERNAL_IP:9000/queue
 ```
 
 ## Why this is better
@@ -75,3 +114,5 @@ curl -X POST http://VM_EXTERNAL_IP:9000/generate \
 - ComfyUI stays private on `127.0.0.1`
 - only the small gateway is exposed
 - workflow and seed stay locked in the repo
+- submit is fire-and-forget by default
+- polling works better for `~500s` average generations
