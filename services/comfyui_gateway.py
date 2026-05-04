@@ -659,6 +659,7 @@ def workflow_defaults(path: Path) -> dict[str, Any]:
             "supports_reference_image": bool(load_image),
             "reference_image": load_image_widgets[0] if len(load_image_widgets) > 0 else None,
             "positive_prompt": positive_prompt,
+            "positive_prompt_sections": split_positive_prompt_sections(positive_prompt),
             "negative_prompt": negative_prompt,
         },
     }
@@ -677,6 +678,103 @@ PROMPT_SECTION_KEYS = (
     "camera",
 )
 
+SECTION_KEYWORDS = {
+    "identity": (
+        "same face identity",
+        "indian facial",
+        "skin",
+        "eyes",
+        "eyebrows",
+        "nose",
+        "lips",
+        "hair",
+        "makeup",
+        "body",
+        "waist",
+        "arms",
+        "hourglass",
+        "wellness influencer",
+        "creator look",
+        "creator presence",
+        "creator energy",
+    ),
+    "composition": (
+        "pose",
+        "framing",
+        "front-facing",
+        "front facing",
+        "standing",
+        "seated",
+        "sitting",
+        "portrait",
+        "three-quarter",
+        "three quarter",
+        "mirror",
+        "centered",
+        "body angle",
+        "posture",
+    ),
+    "clothing": (
+        "sports bra",
+        "leggings",
+        "shirt",
+        "athleisure",
+        "activewear",
+        "outfit",
+        "wearing",
+        "wardrobe",
+        "knitwear",
+        "yoga set",
+        "styling",
+        "fabric",
+    ),
+    "background": (
+        "cafe",
+        "apartment",
+        "studio",
+        "interior",
+        "resort",
+        "daylight",
+        "background",
+        "setting",
+        "environment",
+        "bangalore",
+        "mumbai",
+        "luxury decor",
+        "location",
+    ),
+    "mood": (
+        "smile",
+        "confidence",
+        "expression",
+        "energy",
+        "serene",
+        "calm",
+        "approachable",
+        "editorial mood",
+        "self-assured",
+        "self assured",
+        "composed",
+        "warm",
+    ),
+    "camera": (
+        "realistic",
+        "smartphone",
+        "sharp focus",
+        "crisp",
+        "skin texture",
+        "lighting",
+        "photo",
+        "editorial",
+        "daylight realism",
+        "camera",
+        "detail",
+        "pores",
+        "contrast",
+        "depth",
+    ),
+}
+
 
 def merge_positive_prompt_sections(sections: Any) -> str:
     if not isinstance(sections, dict):
@@ -689,6 +787,24 @@ def merge_positive_prompt_sections(sections: Any) -> str:
             if cleaned:
                 parts.append(cleaned)
     return ", ".join(parts)
+
+
+def split_positive_prompt_sections(prompt: str) -> dict[str, str]:
+    sections = {key: [] for key in PROMPT_SECTION_KEYS}
+    chunks = [chunk.strip() for chunk in prompt.replace("\n", " ").split(",") if chunk.strip()]
+
+    for chunk in chunks:
+        chunk_lower = chunk.lower()
+        assigned_key = "identity"
+        best_score = 0
+        for key, keywords in SECTION_KEYWORDS.items():
+            score = sum(1 for keyword in keywords if keyword in chunk_lower)
+            if score > best_score:
+                best_score = score
+                assigned_key = key
+        sections[assigned_key].append(chunk)
+
+    return {key: ", ".join(value) for key, value in sections.items()}
 
 
 def build_link_map(workflow: dict[str, Any]) -> dict[int, tuple[int, int, int, int, str]]:
