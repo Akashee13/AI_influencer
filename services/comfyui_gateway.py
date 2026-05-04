@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import sqlite3
 import time
 import uuid
@@ -49,6 +50,10 @@ class WorkflowError(RuntimeError):
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def random_seed() -> int:
+    return random.SystemRandom().randrange(10**14, 10**15)
 
 
 def ensure_db() -> None:
@@ -666,7 +671,10 @@ def apply_overrides(workflow: dict[str, Any], overrides: dict[str, Any]) -> None
     }
     for key, idx in k_map.items():
         if key in overrides:
-            ksampler_node["widgets_values"][idx] = overrides[key]
+            value = overrides[key]
+            if key == "seed" and (value is None or value == ""):
+                value = random_seed()
+            ksampler_node["widgets_values"][idx] = value
 
     if "filename_prefix" in overrides:
         save_node["widgets_values"][0] = overrides["filename_prefix"]

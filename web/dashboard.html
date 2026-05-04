@@ -573,7 +573,7 @@
 
       .run-grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
         gap: 14px;
       }
 
@@ -585,6 +585,9 @@
         cursor: pointer;
         transition: transform 140ms ease, border-color 140ms ease;
         position: relative;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
       }
 
       .run-card:hover {
@@ -664,6 +667,7 @@
         padding: 14px;
         display: grid;
         gap: 12px;
+        flex: 1 1 auto;
       }
 
       .run-title {
@@ -677,6 +681,7 @@
         display: block;
         font-size: 18px;
         line-height: 1.35;
+        word-break: break-word;
       }
 
       .run-title span {
@@ -691,6 +696,7 @@
         font-size: 13px;
         font-weight: 600;
         word-break: break-word;
+        line-height: 1.45;
       }
 
       .run-meta-row {
@@ -727,12 +733,22 @@
         align-items: center;
         border-top: 1px solid rgba(255,255,255,0.08);
         padding-top: 12px;
+        flex-wrap: wrap;
+        margin-top: auto;
       }
 
       .download-links {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
+        min-width: 0;
+        flex: 1 1 180px;
+      }
+
+      .download-links .linkish {
+        display: inline-block;
+        max-width: 100%;
+        overflow-wrap: anywhere;
       }
 
       .linkish {
@@ -757,6 +773,12 @@
         background: rgba(86, 24, 16, 0.84);
         color: #ffd2c5;
         border-color: rgba(255, 106, 61, 0.4);
+      }
+
+      .run-delete {
+        flex: 0 0 auto;
+        min-width: 116px;
+        text-align: center;
       }
 
       .pager {
@@ -857,7 +879,6 @@
         }
 
         .mode-grid,
-        .run-grid,
         .hero-metrics {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
@@ -878,7 +899,6 @@
         .row-2,
         .row-3,
         .mode-grid,
-        .run-grid,
         .hero-metrics {
           grid-template-columns: 1fr;
         }
@@ -889,6 +909,18 @@
         .composer-top {
           flex-direction: column;
           align-items: stretch;
+        }
+
+        .run-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .run-actions {
+          align-items: stretch;
+        }
+
+        .run-delete {
+          width: 100%;
         }
       }
     </style>
@@ -1274,6 +1306,12 @@
         updateComposerChips();
       }
 
+      function normalizedSeedOverride() {
+        const raw = seedInput.value.trim();
+        if (!raw) return null;
+        return Number(raw);
+      }
+
       async function loadWorkflows() {
         try {
           const data = await fetchJson("/workflows", { headers: authHeaders() });
@@ -1310,7 +1348,7 @@
         try {
           const overrides = {};
           if (filenamePrefixInput.value.trim()) overrides.filename_prefix = filenamePrefixInput.value.trim();
-          if (seedInput.value.trim()) overrides.seed = Number(seedInput.value.trim());
+          overrides.seed = normalizedSeedOverride();
           if (widthInput.value.trim()) overrides.width = Number(widthInput.value.trim());
           if (heightInput.value.trim()) overrides.height = Number(heightInput.value.trim());
           if (batchSizeInput.value.trim()) overrides.batch_size = Number(batchSizeInput.value.trim());
@@ -1457,7 +1495,7 @@
                       `<button class="linkish" type="button" data-download="${output.download_url}" data-stop="1">${escapeHtml(output.filename || `output-${index + 1}`)}</button>`
                     ).join("") || '<span class="empty">No outputs</span>'}
                   </div>
-                  <button class="ghost danger" type="button" data-delete="${run.prompt_id}" data-stop="1">Delete Run</button>
+                  <button class="ghost run-delete" type="button" data-detail-open="${run.prompt_id}" data-stop="1">View Details</button>
                 </div>
               </div>
             </article>
@@ -1487,6 +1525,13 @@
           button.addEventListener("click", async (event) => {
             event.stopPropagation();
             await deleteRun(button.getAttribute("data-delete"));
+          });
+        });
+
+        document.querySelectorAll("[data-detail-open]").forEach((button) => {
+          button.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            await loadRunDetail(button.getAttribute("data-detail-open"));
           });
         });
       }
