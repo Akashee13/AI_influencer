@@ -173,6 +173,17 @@ def upsert_discovered_run(
         )
 
 
+def infer_workflow_name_from_prompt(prompt_payload: dict[str, Any] | None) -> str:
+    if not prompt_payload:
+        return DEFAULT_WORKFLOW.name
+    save_image = prompt_payload.get("7")
+    if isinstance(save_image, dict):
+        inputs = save_image.get("inputs", {})
+        if isinstance(inputs, dict) and inputs.get("filename_prefix"):
+            return DEFAULT_WORKFLOW.name
+    return DEFAULT_WORKFLOW.name
+
+
 def row_to_run(row: sqlite3.Row) -> dict[str, Any]:
     result = dict(row)
     for key in ("overrides_json", "raw_request_json", "raw_response_json", "history_json", "outputs_json"):
@@ -537,7 +548,40 @@ def backfill_runs_from_queue() -> None:
                 status=status,
                 prompt_payload=prompt_payload,
                 client_id=client_id,
+                workflow_name=infer_workflow_name_from_prompt(prompt_payload),
             )
+
+
+def backfill_runs_from_history(limit: int = 200) -> None:
+    history = api_get(f"{COMFYUI_URL.rstrip('/')}/history")
+    if not isinstance(history, dict):
+        return
+
+    count = 0
+    for prompt_id, record in history.items():
+        if count >= limit:
+            break
+        if not isinstance(record, dict):
+            continue
+
+        prompt_payload = record.get("prompt")
+        client_id = ""
+        prompt_meta = record.get("prompt")
+        if isinstance(prompt_meta, list) and len(prompt_meta) >= 2:
+            prompt_id = str(prompt_meta[1])
+            if len(prompt_meta) >= 4 and isinstance(prompt_meta[3], dict):
+                client_id = str(prompt_meta[3].get("client_id", ""))
+            prompt_payload = prompt_meta[2] if len(prompt_meta) >= 3 and isinstance(prompt_meta[2], dict) else None
+
+        upsert_discovered_run(
+            prompt_id=prompt_id,
+            status="completed",
+            prompt_payload=prompt_payload if isinstance(prompt_payload, dict) else None,
+            client_id=client_id,
+            workflow_name=infer_workflow_name_from_prompt(prompt_payload if isinstance(prompt_payload, dict) else None),
+        )
+        update_run_record(prompt_id, status="completed", history={prompt_id: record})
+        count += 1
 
 
 def sync_run_status(prompt_id: str) -> dict[str, Any]:
@@ -563,6 +607,7 @@ def active_runs_payload() -> dict[str, Any]:
 
 
 def completed_runs_payload() -> dict[str, Any]:
+    backfill_runs_from_history()
     sync_nonterminal_runs()
     runs = list_runs_by_status(["completed"])
     return {"ok": True, "runs": [summarize_run(run, include_outputs=True) for run in runs]}
