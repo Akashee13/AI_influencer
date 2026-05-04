@@ -584,6 +584,7 @@
         overflow: hidden;
         cursor: pointer;
         transition: transform 140ms ease, border-color 140ms ease;
+        position: relative;
       }
 
       .run-card:hover {
@@ -605,6 +606,44 @@
         overflow: hidden;
       }
 
+      .run-overlay {
+        position: absolute;
+        inset: 12px 12px auto 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        gap: 10px;
+        pointer-events: none;
+      }
+
+      .run-overlay .state,
+      .run-overlay-actions {
+        pointer-events: auto;
+      }
+
+      .run-overlay-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .icon-button {
+        width: 38px;
+        height: 38px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border-radius: 999px;
+        backdrop-filter: blur(14px);
+        background: rgba(13, 18, 28, 0.78);
+        border: 1px solid rgba(255,255,255,0.12);
+        box-shadow: none;
+      }
+
+      .icon-button:hover {
+        transform: translateY(-1px);
+      }
+
       .run-preview img {
         width: 100%;
         height: 100%;
@@ -624,7 +663,7 @@
       .run-body {
         padding: 14px;
         display: grid;
-        gap: 10px;
+        gap: 12px;
       }
 
       .run-title {
@@ -636,8 +675,8 @@
 
       .run-title strong {
         display: block;
-        font-size: 13px;
-        line-height: 1.5;
+        font-size: 18px;
+        line-height: 1.35;
       }
 
       .run-title span {
@@ -645,6 +684,33 @@
         margin-top: 4px;
         color: var(--muted);
         font-size: 12px;
+      }
+
+      .run-filename {
+        color: var(--accent-2);
+        font-size: 13px;
+        font-weight: 600;
+        word-break: break-word;
+      }
+
+      .run-meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .meta-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        color: var(--muted);
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
       }
 
       .code {
@@ -659,6 +725,8 @@
         justify-content: space-between;
         gap: 10px;
         align-items: center;
+        border-top: 1px solid rgba(255,255,255,0.08);
+        padding-top: 12px;
       }
 
       .download-links {
@@ -683,6 +751,12 @@
         color: #ffc8b8;
         border: 1px solid rgba(255, 106, 61, 0.28);
         box-shadow: none;
+      }
+
+      .danger.icon-button {
+        background: rgba(86, 24, 16, 0.84);
+        color: #ffd2c5;
+        border-color: rgba(255, 106, 61, 0.4);
       }
 
       .pager {
@@ -1350,19 +1424,31 @@
 
         completedRunsBody.innerHTML = runs.map((run) => {
           const firstOutput = run.outputs && run.outputs.length ? run.outputs[0] : null;
+          const title = firstOutput?.filename || run.workflow_name || "workflow";
           const selected = state.selectedPromptId === run.prompt_id ? "selected" : "";
           return `
             <article class="run-card ${selected}" data-detail="${run.prompt_id}">
               <div class="run-preview" data-preview="${firstOutput ? firstOutput.download_url : ""}">
                 <div class="fallback">Loading preview...</div>
+                <div class="run-overlay">
+                  ${statusBadge(run.status)}
+                  <div class="run-overlay-actions">
+                    ${firstOutput ? `<button class="icon-button" type="button" title="Download" aria-label="Download" data-download="${firstOutput.download_url}" data-stop="1">DL</button>` : ""}
+                    <button class="icon-button danger" type="button" title="Delete run" aria-label="Delete run" data-delete="${run.prompt_id}" data-stop="1">X</button>
+                  </div>
+                </div>
               </div>
               <div class="run-body">
                 <div class="run-title">
                   <div>
-                    <strong>${escapeHtml(run.workflow_name || "workflow")}</strong>
+                    <strong>${escapeHtml(title)}</strong>
                     <span>${escapeHtml(run.completed_at || "")}</span>
                   </div>
-                  ${statusBadge(run.status)}
+                </div>
+                <div class="run-filename">${escapeHtml(run.workflow_name || "workflow")}</div>
+                <div class="run-meta-row">
+                  <div class="meta-pill">Prompt ${escapeHtml(shortId(run.prompt_id))}</div>
+                  <div class="meta-pill">${escapeHtml((run.outputs || []).length)} output${(run.outputs || []).length === 1 ? "" : "s"}</div>
                 </div>
                 <div class="code">${escapeHtml(run.prompt_id)}</div>
                 <div class="run-actions">
@@ -1371,7 +1457,7 @@
                       `<button class="linkish" type="button" data-download="${output.download_url}" data-stop="1">${escapeHtml(output.filename || `output-${index + 1}`)}</button>`
                     ).join("") || '<span class="empty">No outputs</span>'}
                   </div>
-                  <button class="ghost danger" type="button" data-delete="${run.prompt_id}" data-stop="1">Delete</button>
+                  <button class="ghost danger" type="button" data-delete="${run.prompt_id}" data-stop="1">Delete Run</button>
                 </div>
               </div>
             </article>
@@ -1428,6 +1514,11 @@
         pagerMeta.textContent = `Showing ${start}-${end} of ${state.completedTotal}`;
         prevPageBtn.disabled = state.completedOffset === 0;
         nextPageBtn.disabled = state.completedOffset + PAGE_SIZE >= state.completedTotal;
+      }
+
+      function shortId(value) {
+        if (!value) return "";
+        return value.length > 12 ? `${value.slice(0, 8)}...${value.slice(-4)}` : value;
       }
 
       async function downloadWithAuth(path) {

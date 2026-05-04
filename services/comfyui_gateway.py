@@ -68,7 +68,8 @@ def ensure_db() -> None:
                 raw_response_json TEXT,
                 history_json TEXT,
                 outputs_json TEXT,
-                error_text TEXT
+                error_text TEXT,
+                deleted_at TEXT
             )
             """
         )
@@ -78,6 +79,12 @@ def ensure_db() -> None:
             ON runs(status, submitted_at DESC)
             """
         )
+        columns = {
+            row[1]
+            for row in conn.execute("PRAGMA table_info(runs)").fetchall()
+        }
+        if "deleted_at" not in columns:
+            conn.execute("ALTER TABLE runs ADD COLUMN deleted_at TEXT")
 
 
 def db_connect() -> sqlite3.Connection:
@@ -121,7 +128,8 @@ def record_run_submission(
                 overrides_json=excluded.overrides_json,
                 raw_request_json=excluded.raw_request_json,
                 raw_response_json=excluded.raw_response_json,
-                error_text=NULL
+                error_text=NULL,
+                deleted_at=NULL
             """,
             (
                 prompt_id,
@@ -147,6 +155,12 @@ def upsert_discovered_run(
     raw_request = {"prompt": prompt_payload or {}, "client_id": client_id} if prompt_payload else {}
     raw_response = {"prompt_id": prompt_id}
     with db_connect() as conn:
+        existing = conn.execute(
+            "SELECT deleted_at FROM runs WHERE prompt_id = ?",
+            (prompt_id,),
+        ).fetchone()
+        if existing and existing["deleted_at"] and status == "completed":
+            return
         conn.execute(
             """
             INSERT INTO runs (
@@ -172,6 +186,14 @@ def upsert_discovered_run(
                 json_dumps(raw_request),
                 json_dumps(raw_response),
             ),
+        )
+        conn.execute(
+            """
+            UPDATE runs
+            SET deleted_at = NULL
+            WHERE prompt_id = ? AND deleted_at IS NOT NULL AND status != 'completed'
+            """,
+            (prompt_id,),
         )
 
 
@@ -203,7 +225,7 @@ def list_runs_by_status(
     query: str = "",
 ) -> tuple[list[dict[str, Any]], int]:
     placeholders = ", ".join("?" for _ in statuses)
-    where = [f"status IN ({placeholders})"]
+    where = [f"status IN ({placeholders})", "deleted_at IS NULL"]
     params: list[Any] = list(statuses)
 
     if query:
@@ -244,6 +266,7 @@ def list_nonterminal_prompt_ids() -> list[str]:
             SELECT prompt_id
             FROM runs
             WHERE status IN ('submitted', 'pending', 'running', 'unknown')
+              AND deleted_at IS NULL
             ORDER BY submitted_at DESC
             """
         ).fetchall()
@@ -323,6 +346,7 @@ def update_run_record(
                 outputs_json = COALESCE(?, outputs_json),
                 error_text = COALESCE(?, error_text)
             WHERE prompt_id = ?
+              AND deleted_at IS NULL
             """,
             (
                 status,
@@ -337,13 +361,36 @@ def update_run_record(
 
 def get_run(prompt_id: str) -> dict[str, Any] | None:
     with db_connect() as conn:
-        row = conn.execute("SELECT * FROM runs WHERE prompt_id = ?", (prompt_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM runs WHERE prompt_id = ? AND deleted_at IS NULL",
+            (prompt_id,),
+        ).fetchone()
     return row_to_run(row) if row else None
 
 
-def delete_run_record(prompt_id: str) -> None:
+def mark_run_deleted(prompt_id: str) -> None:
     with db_connect() as conn:
-        conn.execute("DELETE FROM runs WHERE prompt_id = ?", (prompt_id,))
+        conn.execute(
+            """
+            UPDATE runs
+            SET deleted_at = ?, outputs_json = '[]'
+            WHERE prompt_id = ?
+            """,
+            (utc_now(), prompt_id),
+        )
+
+
+def api_post_nojson(url: str, payload: dict[str, Any]) -> tuple[int, str]:
+    req = request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with request.urlopen(req) as resp:
+            return int(resp.status), resp.read().decode("utf-8", errors="replace")
+    except error.HTTPError as exc:
+        return int(exc.code), exc.read().decode("utf-8", errors="replace")
 
 
 def delete_run_and_outputs(prompt_id: str) -> dict[str, Any]:
@@ -353,6 +400,7 @@ def delete_run_and_outputs(prompt_id: str) -> dict[str, Any]:
 
     deleted_files: list[str] = []
     missing_files: list[str] = []
+    comfy_actions: list[dict[str, Any]] = []
     outputs = run.get("outputs", []) or []
 
     for output in outputs:
@@ -368,12 +416,23 @@ def delete_run_and_outputs(prompt_id: str) -> dict[str, Any]:
         except Exception:
             continue
 
-    delete_run_record(prompt_id)
+    for endpoint, payload in (
+        (f"{COMFYUI_URL.rstrip('/')}/history", {"delete": [prompt_id]}),
+        (f"{COMFYUI_URL.rstrip('/')}/queue", {"delete": [prompt_id]}),
+    ):
+        try:
+            status, body = api_post_nojson(endpoint, payload)
+            comfy_actions.append({"endpoint": endpoint, "status": status, "body": body[:500]})
+        except Exception as exc:
+            comfy_actions.append({"endpoint": endpoint, "error": str(exc)})
+
+    mark_run_deleted(prompt_id)
     return {
         "ok": True,
         "prompt_id": prompt_id,
         "deleted_files": deleted_files,
         "missing_files": missing_files,
+        "comfy_actions": comfy_actions,
     }
 
 
