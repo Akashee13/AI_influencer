@@ -341,6 +341,42 @@ def get_run(prompt_id: str) -> dict[str, Any] | None:
     return row_to_run(row) if row else None
 
 
+def delete_run_record(prompt_id: str) -> None:
+    with db_connect() as conn:
+        conn.execute("DELETE FROM runs WHERE prompt_id = ?", (prompt_id,))
+
+
+def delete_run_and_outputs(prompt_id: str) -> dict[str, Any]:
+    run = get_run(prompt_id)
+    if not run:
+        raise WorkflowError("run not found")
+
+    deleted_files: list[str] = []
+    missing_files: list[str] = []
+    outputs = run.get("outputs", []) or []
+
+    for output in outputs:
+        try:
+            file_path = resolve_output_path(output)
+            if COMFYUI_OUTPUT_DIR.resolve() not in file_path.parents:
+                continue
+            if file_path.exists():
+                file_path.unlink()
+                deleted_files.append(str(file_path))
+            else:
+                missing_files.append(str(file_path))
+        except Exception:
+            continue
+
+    delete_run_record(prompt_id)
+    return {
+        "ok": True,
+        "prompt_id": prompt_id,
+        "deleted_files": deleted_files,
+        "missing_files": missing_files,
+    }
+
+
 def summarize_run(run: dict[str, Any], *, include_outputs: bool = False) -> dict[str, Any]:
     summary = {
         "prompt_id": run["prompt_id"],
@@ -968,6 +1004,28 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(HTTPStatus.OK, result)
         except Exception as exc:
             self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
+
+    def do_DELETE(self) -> None:  # noqa: N802
+        if not self._require_auth():
+            return
+
+        parsed = self._parsed_url()
+        path = parsed.path
+
+        if path.startswith("/runs/"):
+            prompt_id = path.removeprefix("/runs/").strip()
+            if not prompt_id or "/" in prompt_id or prompt_id in {"active", "completed"}:
+                self._send_json(HTTPStatus.BAD_REQUEST, {"error": "invalid prompt_id"})
+                return
+            try:
+                self._send_json(HTTPStatus.OK, delete_run_and_outputs(prompt_id))
+            except WorkflowError as exc:
+                self._send_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
+            return
+
+        self._send_json(HTTPStatus.NOT_FOUND, {"error": "not found"})
 
 
 def main() -> None:

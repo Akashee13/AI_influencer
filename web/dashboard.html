@@ -678,6 +678,13 @@
         cursor: pointer;
       }
 
+      .danger {
+        background: rgba(255, 106, 61, 0.1);
+        color: #ffc8b8;
+        border: 1px solid rgba(255, 106, 61, 0.28);
+        box-shadow: none;
+      }
+
       .pager {
         justify-content: space-between;
         padding: 0 18px 18px;
@@ -1358,10 +1365,13 @@
                   ${statusBadge(run.status)}
                 </div>
                 <div class="code">${escapeHtml(run.prompt_id)}</div>
-                <div class="download-links">
-                  ${(run.outputs || []).slice(0, 3).map((output, index) =>
-                    `<button class="linkish" type="button" data-download="${output.download_url}" data-stop="1">${escapeHtml(output.filename || `output-${index + 1}`)}</button>`
-                  ).join("") || '<span class="empty">No outputs</span>'}
+                <div class="run-actions">
+                  <div class="download-links">
+                    ${(run.outputs || []).slice(0, 2).map((output, index) =>
+                      `<button class="linkish" type="button" data-download="${output.download_url}" data-stop="1">${escapeHtml(output.filename || `output-${index + 1}`)}</button>`
+                    ).join("") || '<span class="empty">No outputs</span>'}
+                  </div>
+                  <button class="ghost danger" type="button" data-delete="${run.prompt_id}" data-stop="1">Delete</button>
                 </div>
               </div>
             </article>
@@ -1384,6 +1394,13 @@
           button.addEventListener("click", async (event) => {
             event.stopPropagation();
             await downloadWithAuth(button.getAttribute("data-download"));
+          });
+        });
+
+        document.querySelectorAll("[data-delete]").forEach((button) => {
+          button.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            await deleteRun(button.getAttribute("data-delete"));
           });
         });
       }
@@ -1437,6 +1454,40 @@
         }
       }
 
+      async function deleteRun(promptId) {
+        const confirmed = window.confirm(`Delete run ${promptId} and its saved output files?`);
+        if (!confirmed) return;
+
+        try {
+          const response = await fetch(`/runs/${promptId}`, {
+            method: "DELETE",
+            headers: authHeaders(),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || `Delete failed with ${response.status}`);
+          }
+
+          for (const [key, value] of state.previewUrls.entries()) {
+            if (key.includes(`/download/${promptId}/`)) {
+              URL.revokeObjectURL(value);
+              state.previewUrls.delete(key);
+            }
+          }
+
+          if (state.selectedPromptId === promptId) {
+            state.selectedPromptId = "";
+            state.detailRun = null;
+            detailPane.innerHTML = "No run selected yet.";
+          }
+
+          submitStatus.textContent = `Deleted ${promptId}.`;
+          await refreshAll();
+        } catch (error) {
+          submitStatus.textContent = error.message;
+        }
+      }
+
       async function loadRunDetail(promptId) {
         try {
           const data = await fetchJson(`/runs/${promptId}`, { headers: authHeaders() });
@@ -1471,7 +1522,10 @@
         detailPane.innerHTML = `
           <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
             ${statusBadge(run.status)}
-            <button class="secondary" id="detailDownloadFirst" ${firstOutput ? "" : "disabled"}>Download First Output</button>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <button class="secondary" id="detailDownloadFirst" ${firstOutput ? "" : "disabled"}>Download First Output</button>
+              <button class="ghost danger" id="detailDeleteRun">Delete Run</button>
+            </div>
           </div>
           ${previewHtml}
           <div class="meta-grid">
@@ -1495,6 +1549,13 @@
         if (button && firstOutput) {
           button.addEventListener("click", async () => {
             await downloadWithAuth(firstOutput.download_url);
+          });
+        }
+
+        const deleteButton = document.getElementById("detailDeleteRun");
+        if (deleteButton) {
+          deleteButton.addEventListener("click", async () => {
+            await deleteRun(run.prompt_id);
           });
         }
       }
