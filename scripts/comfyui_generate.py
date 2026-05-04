@@ -73,9 +73,9 @@ def get_widget_values(node: dict[str, Any]) -> list[Any]:
     return list(node.get("widgets_values", []))
 
 
-def input_ref(link_map: dict[int, tuple[int, int, int, int, str]], link_id: int, output_name: str) -> list[Any]:
-    from_node, *_rest = link_map[link_id]
-    return [str(from_node), output_name]
+def input_ref(link_map: dict[int, tuple[int, int, int, int, str]], link_id: int) -> list[Any]:
+    from_node, from_slot, *_rest = link_map[link_id]
+    return [str(from_node), from_slot]
 
 
 def ui_workflow_to_api_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
@@ -107,7 +107,7 @@ def ui_workflow_to_api_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
                 "class_type": node_type,
                 "inputs": {
                     "text": widgets[0],
-                    "clip": input_ref(link_map, clip_input["link"], "CLIP"),
+                    "clip": input_ref(link_map, clip_input["link"]),
                 },
             }
         elif node_type == "KSampler":
@@ -124,10 +124,10 @@ def ui_workflow_to_api_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
                     "sampler_name": widgets[4],
                     "scheduler": widgets[5],
                     "denoise": widgets[6],
-                    "model": input_ref(link_map, model_link, "MODEL"),
-                    "positive": input_ref(link_map, pos_link, "CONDITIONING"),
-                    "negative": input_ref(link_map, neg_link, "CONDITIONING"),
-                    "latent_image": input_ref(link_map, latent_link, "LATENT"),
+                    "model": input_ref(link_map, model_link),
+                    "positive": input_ref(link_map, pos_link),
+                    "negative": input_ref(link_map, neg_link),
+                    "latent_image": input_ref(link_map, latent_link),
                 },
             }
         elif node_type == "VAEDecode":
@@ -136,8 +136,8 @@ def ui_workflow_to_api_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
             api_prompt[node_id] = {
                 "class_type": node_type,
                 "inputs": {
-                    "samples": input_ref(link_map, samples_link, "LATENT"),
-                    "vae": input_ref(link_map, vae_link, "VAE"),
+                    "samples": input_ref(link_map, samples_link),
+                    "vae": input_ref(link_map, vae_link),
                 },
             }
         elif node_type == "SaveImage":
@@ -146,7 +146,7 @@ def ui_workflow_to_api_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
                 "class_type": node_type,
                 "inputs": {
                     "filename_prefix": widgets[0],
-                    "images": input_ref(link_map, image_link, "IMAGE"),
+                    "images": input_ref(link_map, image_link),
                 },
             }
         else:
