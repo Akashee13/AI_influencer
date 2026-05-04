@@ -134,6 +134,45 @@ def record_run_submission(
         )
 
 
+def upsert_discovered_run(
+    *,
+    prompt_id: str,
+    status: str,
+    prompt_payload: dict[str, Any] | None = None,
+    client_id: str = "",
+    workflow_name: str = DEFAULT_WORKFLOW.name,
+) -> None:
+    raw_request = {"prompt": prompt_payload or {}, "client_id": client_id} if prompt_payload else {}
+    raw_response = {"prompt_id": prompt_id}
+    with db_connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO runs (
+                prompt_id,
+                workflow_name,
+                client_id,
+                status,
+                submitted_at,
+                overrides_json,
+                raw_request_json,
+                raw_response_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(prompt_id) DO UPDATE SET
+                status=excluded.status
+            """,
+            (
+                prompt_id,
+                workflow_name,
+                client_id,
+                status,
+                utc_now(),
+                json_dumps({}),
+                json_dumps(raw_request),
+                json_dumps(raw_response),
+            ),
+        )
+
+
 def row_to_run(row: sqlite3.Row) -> dict[str, Any]:
     result = dict(row)
     for key in ("overrides_json", "raw_request_json", "raw_response_json", "history_json", "outputs_json"):
@@ -482,6 +521,25 @@ def build_status(prompt_id: str) -> dict[str, Any]:
     }
 
 
+def backfill_runs_from_queue() -> None:
+    queue = api_get(f"{COMFYUI_URL.rstrip('/')}/queue")
+    for status, key in (("running", "queue_running"), ("pending", "queue_pending")):
+        for item in queue.get(key, []):
+            if len(item) < 2:
+                continue
+            prompt_id = item[1]
+            prompt_payload = item[2] if len(item) > 2 and isinstance(item[2], dict) else None
+            client_id = ""
+            if len(item) > 3 and isinstance(item[3], dict):
+                client_id = str(item[3].get("client_id", ""))
+            upsert_discovered_run(
+                prompt_id=prompt_id,
+                status=status,
+                prompt_payload=prompt_payload,
+                client_id=client_id,
+            )
+
+
 def sync_run_status(prompt_id: str) -> dict[str, Any]:
     status = build_status(prompt_id)
     history = status.get("history") if status.get("status") == "completed" else None
@@ -498,6 +556,7 @@ def sync_nonterminal_runs() -> None:
 
 
 def active_runs_payload() -> dict[str, Any]:
+    backfill_runs_from_queue()
     sync_nonterminal_runs()
     runs = list_runs_by_status(["submitted", "pending", "running", "unknown"])
     return {"ok": True, "runs": [summarize_run(run) for run in runs]}
