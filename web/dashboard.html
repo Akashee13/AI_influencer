@@ -345,6 +345,38 @@
         font-size: 13px;
       }
 
+      .field-help {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .file-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .file-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid var(--line);
+        color: var(--ink);
+        font-size: 12px;
+        min-height: 44px;
+        max-width: 100%;
+      }
+
+      .file-chip span {
+        overflow-wrap: anywhere;
+      }
+
       .mode-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -961,6 +993,22 @@
               <div class="field">
                 <label for="workflow">Workflow</label>
                 <select id="workflow"></select>
+                <div class="field-help" id="workflowCapabilities">Loading workflow capabilities...</div>
+              </div>
+
+              <div class="field">
+                <label for="referenceImage">Reference Image</label>
+                <div class="file-row">
+                  <input id="referenceImage" type="file" accept="image/png,image/jpeg,image/webp">
+                  <button id="clearReferenceImageBtn" class="ghost" type="button">Clear</button>
+                </div>
+                <div class="field-help" id="referenceImageHint">
+                  Upload a reference still when the workflow supports image guidance. Video support will come through a separate motion workflow branch.
+                </div>
+                <div class="file-chip" id="referenceImageChip" hidden>
+                  <strong>Reference</strong>
+                  <span id="referenceImageName">None</span>
+                </div>
               </div>
 
               <div class="field">
@@ -1186,11 +1234,18 @@
         detailRun: null,
         currentWorkflow: "",
         workflows: [],
+        referenceImageFilename: "",
       };
 
       const tokenInput = document.getElementById("token");
       const rememberTokenCheckbox = document.getElementById("rememberToken");
       const workflowSelect = document.getElementById("workflow");
+      const workflowCapabilities = document.getElementById("workflowCapabilities");
+      const referenceImageInput = document.getElementById("referenceImage");
+      const clearReferenceImageBtn = document.getElementById("clearReferenceImageBtn");
+      const referenceImageHint = document.getElementById("referenceImageHint");
+      const referenceImageChip = document.getElementById("referenceImageChip");
+      const referenceImageName = document.getElementById("referenceImageName");
       const filenamePrefixInput = document.getElementById("filenamePrefix");
       const seedInput = document.getElementById("seed");
       const widthInput = document.getElementById("width");
@@ -1288,6 +1343,29 @@
         workflowChip.textContent = workflowSelect.value || "loading...";
       }
 
+      function currentWorkflowDefinition() {
+        return state.workflows.find((item) => item.name === workflowSelect.value) || null;
+      }
+
+      function workflowSupportsReferenceImage(workflow) {
+        return Boolean(workflow?.defaults?.supports_reference_image);
+      }
+
+      function updateReferenceImageUi() {
+        const workflow = currentWorkflowDefinition();
+        const supportsReference = workflowSupportsReferenceImage(workflow);
+        workflowCapabilities.textContent = supportsReference
+          ? "This workflow accepts a reference image and uses it as the starting composition."
+          : "This workflow is text-first only right now. Reference image upload is disabled until you choose an img2img workflow.";
+        referenceImageInput.disabled = !supportsReference;
+        clearReferenceImageBtn.disabled = !supportsReference && !state.referenceImageFilename;
+        referenceImageHint.textContent = supportsReference
+          ? "Upload a still image to steer pose and composition for this workflow."
+          : "Pick a workflow with image guidance to enable reference upload. Video support will come in a later motion workflow.";
+        referenceImageChip.hidden = !state.referenceImageFilename;
+        referenceImageName.textContent = state.referenceImageFilename || "None";
+      }
+
       function fillFormFromWorkflow(workflowName) {
         const workflow = state.workflows.find((item) => item.name === workflowName);
         if (!workflow || !workflow.defaults) {
@@ -1304,12 +1382,37 @@
         positivePromptInput.value = defaults.positive_prompt ?? "";
         negativePromptInput.value = defaults.negative_prompt ?? "";
         updateComposerChips();
+        updateReferenceImageUi();
       }
 
       function normalizedSeedOverride() {
         const raw = seedInput.value.trim();
         if (!raw) return null;
         return Number(raw);
+      }
+
+      async function uploadReferenceImage(file) {
+        const buffer = await file.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        let binary = "";
+        const chunkSize = 0x8000;
+        for (let index = 0; index < bytes.length; index += chunkSize) {
+          binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+        }
+        const contentBase64 = btoa(binary);
+        const data = await fetchJson("/upload/reference-image", {
+          method: "POST",
+          headers: authHeaders(true),
+          body: JSON.stringify({
+            filename: file.name,
+            content_base64: contentBase64,
+          }),
+        });
+        state.referenceImageFilename = data.filename || "";
+        updateReferenceImageUi();
+        submitStatus.textContent = state.referenceImageFilename
+          ? `Uploaded reference image ${state.referenceImageFilename}.`
+          : "Reference image uploaded.";
       }
 
       async function loadWorkflows() {
@@ -1321,6 +1424,7 @@
             .join("");
           state.currentWorkflow = workflowSelect.value || "";
           fillFormFromWorkflow(state.currentWorkflow);
+          updateReferenceImageUi();
         } catch (error) {
           workflowSelect.innerHTML = `<option value="">Failed to load workflows</option>`;
           submitStatus.textContent = error.message;
@@ -1347,6 +1451,7 @@
         submitStatus.textContent = "Submitting run...";
         try {
           const overrides = {};
+          const workflow = currentWorkflowDefinition();
           if (filenamePrefixInput.value.trim()) overrides.filename_prefix = filenamePrefixInput.value.trim();
           overrides.seed = normalizedSeedOverride();
           if (widthInput.value.trim()) overrides.width = Number(widthInput.value.trim());
@@ -1354,6 +1459,12 @@
           if (batchSizeInput.value.trim()) overrides.batch_size = Number(batchSizeInput.value.trim());
           if (positivePromptInput.value.trim()) overrides.positive_prompt = positivePromptInput.value.trim();
           if (negativePromptInput.value.trim()) overrides.negative_prompt = negativePromptInput.value.trim();
+          if (workflowSupportsReferenceImage(workflow)) {
+            if (!state.referenceImageFilename) {
+              throw new Error("Upload a reference image before submitting this workflow.");
+            }
+            overrides.reference_image = state.referenceImageFilename;
+          }
 
           const data = await fetchJson("/generate", {
             method: "POST",
@@ -1719,6 +1830,22 @@
       workflowSelect.addEventListener("change", () => {
         state.currentWorkflow = workflowSelect.value || "";
         fillFormFromWorkflow(state.currentWorkflow);
+      });
+      referenceImageInput.addEventListener("change", async () => {
+        const file = referenceImageInput.files && referenceImageInput.files[0];
+        if (!file) return;
+        try {
+          submitStatus.textContent = "Uploading reference image...";
+          await uploadReferenceImage(file);
+        } catch (error) {
+          submitStatus.textContent = error.message;
+        }
+      });
+      clearReferenceImageBtn.addEventListener("click", () => {
+        state.referenceImageFilename = "";
+        referenceImageInput.value = "";
+        updateReferenceImageUi();
+        submitStatus.textContent = "Cleared reference image.";
       });
       filenamePrefixInput.addEventListener("input", updateComposerChips);
       autoRefreshCheckbox.addEventListener("change", updateAutoRefresh);

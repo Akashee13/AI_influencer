@@ -14,6 +14,7 @@ It is intentionally stdlib-only so deployment on the VM stays simple.
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import random
@@ -42,6 +43,10 @@ RUNS_DB_PATH = Path(os.environ.get("COMFYUI_RUNS_DB", str(ROOT / "data" / "runs.
 COMFYUI_OUTPUT_DIR = Path(
     os.environ.get("COMFYUI_OUTPUT_DIR", str(Path.home() / "comfy" / "output"))
 )
+COMFYUI_INPUT_DIR = Path(
+    os.environ.get("COMFYUI_INPUT_DIR", str(Path.home() / "comfy" / "input"))
+)
+ALLOWED_REFERENCE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}
 
 
 class WorkflowError(RuntimeError):
@@ -498,6 +503,32 @@ def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text())
 
 
+def sanitize_reference_filename(filename: str) -> str:
+    cleaned = Path(filename).name.strip().replace(" ", "_")
+    if not cleaned:
+        cleaned = f"reference_{uuid.uuid4().hex[:8]}.png"
+    stem = Path(cleaned).stem or f"reference_{uuid.uuid4().hex[:8]}"
+    suffix = Path(cleaned).suffix.lower() or ".png"
+    if suffix not in ALLOWED_REFERENCE_SUFFIXES:
+        raise WorkflowError("unsupported reference image type")
+    safe_stem = "".join(ch for ch in stem if ch.isalnum() or ch in {"-", "_"}).strip("._-") or "reference"
+    return f"{safe_stem}_{uuid.uuid4().hex[:8]}{suffix}"
+
+
+def save_reference_image(filename: str, content_b64: str) -> str:
+    safe_name = sanitize_reference_filename(filename)
+    COMFYUI_INPUT_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        raw = base64.b64decode(content_b64, validate=True)
+    except Exception as exc:  # pragma: no cover - malformed payload
+        raise WorkflowError("invalid base64 image payload") from exc
+    if not raw:
+        raise WorkflowError("empty reference image payload")
+    destination = COMFYUI_INPUT_DIR / safe_name
+    destination.write_bytes(raw)
+    return safe_name
+
+
 def list_workflow_files() -> list[str]:
     return sorted(path.name for path in WORKFLOW_DIR.glob("*.json"))
 
@@ -509,11 +540,13 @@ def workflow_defaults(path: Path) -> dict[str, Any]:
     latent = nodes_by_type.get("EmptyLatentImage", {})
     sampler = nodes_by_type.get("KSampler", {})
     save = nodes_by_type.get("SaveImage", {})
+    load_image = nodes_by_type.get("LoadImage", {})
     positive_node, negative_node = resolve_prompt_nodes(workflow)
 
     latent_widgets = list(latent.get("widgets_values", []))
     sampler_widgets = list(sampler.get("widgets_values", []))
     save_widgets = list(save.get("widgets_values", []))
+    load_image_widgets = list(load_image.get("widgets_values", []))
 
     positive_prompt = positive_node["widgets_values"][0] if positive_node.get("widgets_values") else ""
     negative_prompt = negative_node["widgets_values"][0] if negative_node.get("widgets_values") else ""
@@ -532,6 +565,8 @@ def workflow_defaults(path: Path) -> dict[str, Any]:
             "scheduler": sampler_widgets[5] if len(sampler_widgets) > 5 else None,
             "denoise": sampler_widgets[6] if len(sampler_widgets) > 6 else None,
             "filename_prefix": save_widgets[0] if len(save_widgets) > 0 else None,
+            "supports_reference_image": bool(load_image),
+            "reference_image": load_image_widgets[0] if len(load_image_widgets) > 0 else None,
             "positive_prompt": positive_prompt,
             "negative_prompt": negative_prompt,
         },
@@ -618,6 +653,25 @@ def ui_workflow_to_api_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
                     "latent_image": input_ref(link_map, latent_link),
                 },
             }
+        elif node_type == "LoadImage":
+            image_name = widgets[0] if widgets else ""
+            api_prompt[node_id] = {
+                "class_type": node_type,
+                "inputs": {
+                    "image": image_name,
+                    "upload": "image",
+                },
+            }
+        elif node_type == "VAEEncode":
+            pixels_link = next(inp for inp in node["inputs"] if inp["name"] == "pixels")["link"]
+            vae_link = next(inp for inp in node["inputs"] if inp["name"] == "vae")["link"]
+            api_prompt[node_id] = {
+                "class_type": node_type,
+                "inputs": {
+                    "pixels": input_ref(link_map, pixels_link),
+                    "vae": input_ref(link_map, vae_link),
+                },
+            }
         elif node_type == "VAEDecode":
             samples_link = next(inp for inp in node["inputs"] if inp["name"] == "samples")["link"]
             vae_link = next(inp for inp in node["inputs"] if inp["name"] == "vae")["link"]
@@ -645,20 +699,23 @@ def ui_workflow_to_api_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
 
 def apply_overrides(workflow: dict[str, Any], overrides: dict[str, Any]) -> None:
     positive_node, negative_node = resolve_prompt_nodes(workflow)
-    latent_node = find_nodes_by_type(workflow, "EmptyLatentImage")[0]
+    latent_nodes = find_nodes_by_type(workflow, "EmptyLatentImage")
     ksampler_node = find_nodes_by_type(workflow, "KSampler")[0]
     save_node = find_nodes_by_type(workflow, "SaveImage")[0]
+    load_image_nodes = find_nodes_by_type(workflow, "LoadImage")
 
     if "positive_prompt" in overrides:
         positive_node["widgets_values"][0] = overrides["positive_prompt"]
     if "negative_prompt" in overrides:
         negative_node["widgets_values"][0] = overrides["negative_prompt"]
-    if "width" in overrides:
-        latent_node["widgets_values"][0] = overrides["width"]
-    if "height" in overrides:
-        latent_node["widgets_values"][1] = overrides["height"]
-    if "batch_size" in overrides:
-        latent_node["widgets_values"][2] = overrides["batch_size"]
+    if latent_nodes:
+        latent_node = latent_nodes[0]
+        if "width" in overrides:
+            latent_node["widgets_values"][0] = overrides["width"]
+        if "height" in overrides:
+            latent_node["widgets_values"][1] = overrides["height"]
+        if "batch_size" in overrides:
+            latent_node["widgets_values"][2] = overrides["batch_size"]
 
     k_map = {
         "seed": 0,
@@ -678,6 +735,8 @@ def apply_overrides(workflow: dict[str, Any], overrides: dict[str, Any]) -> None
 
     if "filename_prefix" in overrides:
         save_node["widgets_values"][0] = overrides["filename_prefix"]
+    if "reference_image" in overrides and load_image_nodes:
+        load_image_nodes[0]["widgets_values"][0] = overrides["reference_image"]
 
 
 def wait_for_history(prompt_id: str, timeout_s: int) -> dict[str, Any]:
@@ -1014,6 +1073,32 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         if not self._require_auth():
+            return
+
+        if self.path == "/upload/reference-image":
+            raw_length = self.headers.get("Content-Length", "0")
+            length = int(raw_length)
+            body = self.rfile.read(length)
+            payload = json.loads(body.decode("utf-8") or "{}")
+            filename = str(payload.get("filename", "")).strip()
+            content_b64 = str(payload.get("content_base64", "")).strip()
+            if not filename or not content_b64:
+                self._send_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "missing filename or content_base64"})
+                return
+            try:
+                saved_name = save_reference_image(filename, content_b64)
+                self._send_json(
+                    HTTPStatus.OK,
+                    {
+                        "ok": True,
+                        "filename": saved_name,
+                        "input_dir": str(COMFYUI_INPUT_DIR),
+                    },
+                )
+            except WorkflowError as exc:
+                self._send_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
             return
 
         if self.path != "/generate":
