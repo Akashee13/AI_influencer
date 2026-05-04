@@ -13,6 +13,7 @@ This removes the need for an SSH tunnel from your laptop.
 - Gateway service: [services/comfyui_gateway.py](/Users/akash/Documents/PetProjects/AI Influencer/services/comfyui_gateway.py)
 - Deploy helper: [scripts/deploy_comfyui_gateway.sh](/Users/akash/Documents/PetProjects/AI Influencer/scripts/deploy_comfyui_gateway.sh)
 - Locked workflow: [comfyui/workflows/mumbai-yoga-anchor-v1.json](/Users/akash/Documents/PetProjects/AI Influencer/comfyui/workflows/mumbai-yoga-anchor-v1.json)
+- Local run database: `data/runs.db`
 
 ## One-time VM setup
 
@@ -106,6 +107,32 @@ curl -H 'Authorization: Bearer replace-with-a-long-random-token' \
 ```bash
 curl -H 'Authorization: Bearer replace-with-a-long-random-token' \
   http://VM_EXTERNAL_IP:9000/queue
+```
+
+## List active runs
+
+```bash
+curl -H 'Authorization: Bearer replace-with-a-long-random-token' \
+  http://VM_EXTERNAL_IP:9000/runs/active
+```
+
+## List completed runs
+
+Completed runs include saved prompt metadata plus output download URLs.
+
+```bash
+curl -H 'Authorization: Bearer replace-with-a-long-random-token' \
+  http://VM_EXTERNAL_IP:9000/runs/completed
+```
+
+## Download an output
+
+Each completed output includes a relative `download_url` like `/download/PROMPT_ID/0`.
+
+```bash
+curl -L -H 'Authorization: Bearer replace-with-a-long-random-token' \
+  -o result.png \
+  http://VM_EXTERNAL_IP:9000/download/PROMPT_ID/0
 ```
 
 ## Why this is better

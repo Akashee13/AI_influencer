@@ -16,12 +16,15 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 import time
 import uuid
+from datetime import datetime, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from urllib import parse
 from urllib import error, request
 
 
@@ -32,10 +35,248 @@ WORKFLOW_DIR = Path(os.environ.get("WORKFLOW_DIR", str(DEFAULT_WORKFLOW.parent))
 API_TOKEN = os.environ.get("COMFYUI_GATEWAY_TOKEN", "")
 HOST = os.environ.get("COMFYUI_GATEWAY_HOST", "0.0.0.0")
 PORT = int(os.environ.get("COMFYUI_GATEWAY_PORT", "9000"))
+RUNS_DB_PATH = Path(os.environ.get("COMFYUI_RUNS_DB", str(ROOT / "data" / "runs.db")))
+COMFYUI_OUTPUT_DIR = Path(
+    os.environ.get("COMFYUI_OUTPUT_DIR", str(Path.home() / "comfy" / "output"))
+)
 
 
 class WorkflowError(RuntimeError):
     pass
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def ensure_db() -> None:
+    RUNS_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(RUNS_DB_PATH) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS runs (
+                prompt_id TEXT PRIMARY KEY,
+                workflow_name TEXT NOT NULL,
+                client_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                submitted_at TEXT NOT NULL,
+                completed_at TEXT,
+                overrides_json TEXT NOT NULL,
+                raw_request_json TEXT NOT NULL,
+                raw_response_json TEXT,
+                history_json TEXT,
+                outputs_json TEXT,
+                error_text TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_runs_status_submitted
+            ON runs(status, submitted_at DESC)
+            """
+        )
+
+
+def db_connect() -> sqlite3.Connection:
+    ensure_db()
+    conn = sqlite3.connect(RUNS_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def json_dumps(value: Any) -> str:
+    return json.dumps(value, sort_keys=True)
+
+
+def record_run_submission(
+    *,
+    prompt_id: str,
+    workflow_name: str,
+    client_id: str,
+    overrides: dict[str, Any],
+    raw_request: dict[str, Any],
+    raw_response: dict[str, Any],
+) -> None:
+    with db_connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO runs (
+                prompt_id,
+                workflow_name,
+                client_id,
+                status,
+                submitted_at,
+                overrides_json,
+                raw_request_json,
+                raw_response_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(prompt_id) DO UPDATE SET
+                workflow_name=excluded.workflow_name,
+                client_id=excluded.client_id,
+                status=excluded.status,
+                submitted_at=excluded.submitted_at,
+                overrides_json=excluded.overrides_json,
+                raw_request_json=excluded.raw_request_json,
+                raw_response_json=excluded.raw_response_json,
+                error_text=NULL
+            """,
+            (
+                prompt_id,
+                workflow_name,
+                client_id,
+                "submitted",
+                utc_now(),
+                json_dumps(overrides),
+                json_dumps(raw_request),
+                json_dumps(raw_response),
+            ),
+        )
+
+
+def row_to_run(row: sqlite3.Row) -> dict[str, Any]:
+    result = dict(row)
+    for key in ("overrides_json", "raw_request_json", "raw_response_json", "history_json", "outputs_json"):
+        if result.get(key):
+            result[key.removesuffix("_json")] = json.loads(result[key])
+        result.pop(key, None)
+    return result
+
+
+def list_runs_by_status(statuses: list[str], limit: int = 100) -> list[dict[str, Any]]:
+    placeholders = ", ".join("?" for _ in statuses)
+    with db_connect() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT *
+            FROM runs
+            WHERE status IN ({placeholders})
+            ORDER BY submitted_at DESC
+            LIMIT ?
+            """,
+            (*statuses, limit),
+        ).fetchall()
+    return [row_to_run(row) for row in rows]
+
+
+def list_nonterminal_prompt_ids() -> list[str]:
+    with db_connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT prompt_id
+            FROM runs
+            WHERE status IN ('submitted', 'pending', 'running', 'unknown')
+            ORDER BY submitted_at DESC
+            """
+        ).fetchall()
+    return [row["prompt_id"] for row in rows]
+
+
+def parse_history_record(history: dict[str, Any], prompt_id: str) -> dict[str, Any]:
+    if prompt_id in history:
+        record = history[prompt_id]
+    elif history:
+        record = next(iter(history.values()))
+    else:
+        record = {}
+    if not isinstance(record, dict):
+        return {}
+    return record
+
+
+def extract_outputs_from_history(history: dict[str, Any], prompt_id: str) -> list[dict[str, Any]]:
+    record = parse_history_record(history, prompt_id)
+    outputs = record.get("outputs", {})
+    files: list[dict[str, Any]] = []
+
+    if not isinstance(outputs, dict):
+        return files
+
+    for node_id, node_output in outputs.items():
+        if not isinstance(node_output, dict):
+            continue
+        for kind in ("images", "gifs", "audio"):
+            items = node_output.get(kind, [])
+            if not isinstance(items, list):
+                continue
+            for index, item in enumerate(items):
+                if not isinstance(item, dict):
+                    continue
+                filename = item.get("filename")
+                subfolder = item.get("subfolder", "")
+                file_type = item.get("type", "")
+                relative_path = Path(subfolder) / filename if subfolder else Path(str(filename))
+                files.append(
+                    {
+                        "node_id": str(node_id),
+                        "kind": kind,
+                        "index": index,
+                        "filename": filename,
+                        "subfolder": subfolder,
+                        "type": file_type,
+                        "relative_path": str(relative_path),
+                        "download_url": f"/download/{prompt_id}/{len(files)}",
+                    }
+                )
+    return files
+
+
+def resolve_output_path(output: dict[str, Any]) -> Path:
+    relative_path = Path(output["relative_path"])
+    return (COMFYUI_OUTPUT_DIR / relative_path).resolve()
+
+
+def update_run_record(
+    prompt_id: str,
+    *,
+    status: str,
+    history: dict[str, Any] | None = None,
+    error_text: str | None = None,
+) -> None:
+    outputs = extract_outputs_from_history(history, prompt_id) if history else None
+    completed_at = utc_now() if status == "completed" else None
+    with db_connect() as conn:
+        conn.execute(
+            """
+            UPDATE runs
+            SET status = ?,
+                completed_at = COALESCE(?, completed_at),
+                history_json = COALESCE(?, history_json),
+                outputs_json = COALESCE(?, outputs_json),
+                error_text = COALESCE(?, error_text)
+            WHERE prompt_id = ?
+            """,
+            (
+                status,
+                completed_at,
+                json_dumps(history) if history is not None else None,
+                json_dumps(outputs) if outputs is not None else None,
+                error_text,
+                prompt_id,
+            ),
+        )
+
+
+def get_run(prompt_id: str) -> dict[str, Any] | None:
+    with db_connect() as conn:
+        row = conn.execute("SELECT * FROM runs WHERE prompt_id = ?", (prompt_id,)).fetchone()
+    return row_to_run(row) if row else None
+
+
+def summarize_run(run: dict[str, Any], *, include_outputs: bool = False) -> dict[str, Any]:
+    summary = {
+        "prompt_id": run["prompt_id"],
+        "workflow_name": run["workflow_name"],
+        "client_id": run["client_id"],
+        "status": run["status"],
+        "submitted_at": run["submitted_at"],
+        "completed_at": run.get("completed_at"),
+        "error_text": run.get("error_text"),
+        "overrides": run.get("overrides"),
+    }
+    if include_outputs:
+        summary["outputs"] = run.get("outputs", [])
+    return summary
 
 
 def api_get(url: str) -> Any:
@@ -241,6 +482,33 @@ def build_status(prompt_id: str) -> dict[str, Any]:
     }
 
 
+def sync_run_status(prompt_id: str) -> dict[str, Any]:
+    status = build_status(prompt_id)
+    history = status.get("history") if status.get("status") == "completed" else None
+    update_run_record(prompt_id, status=status["status"], history=history)
+    return status
+
+
+def sync_nonterminal_runs() -> None:
+    for prompt_id in list_nonterminal_prompt_ids():
+        try:
+            sync_run_status(prompt_id)
+        except Exception:
+            continue
+
+
+def active_runs_payload() -> dict[str, Any]:
+    sync_nonterminal_runs()
+    runs = list_runs_by_status(["submitted", "pending", "running", "unknown"])
+    return {"ok": True, "runs": [summarize_run(run) for run in runs]}
+
+
+def completed_runs_payload() -> dict[str, Any]:
+    sync_nonterminal_runs()
+    runs = list_runs_by_status(["completed"])
+    return {"ok": True, "runs": [summarize_run(run, include_outputs=True) for run in runs]}
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "ComfyUIGateway/0.2"
 
@@ -285,6 +553,20 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
             return
 
+        if self.path == "/runs/active":
+            try:
+                self._send_json(HTTPStatus.OK, active_runs_payload())
+            except Exception as exc:
+                self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
+            return
+
+        if self.path == "/runs/completed":
+            try:
+                self._send_json(HTTPStatus.OK, completed_runs_payload())
+            except Exception as exc:
+                self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
+            return
+
         if self.path.startswith("/history/"):
             prompt_id = self.path.removeprefix("/history/").strip()
             if not prompt_id:
@@ -292,6 +574,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             try:
                 history = api_get(f"{COMFYUI_URL.rstrip('/')}/history/{prompt_id}")
+                update_run_record(prompt_id, status="completed", history=history)
                 self._send_json(HTTPStatus.OK, {"ok": True, "prompt_id": prompt_id, "history": history})
             except Exception as exc:
                 self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
@@ -303,7 +586,46 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(HTTPStatus.BAD_REQUEST, {"error": "missing prompt_id"})
                 return
             try:
-                self._send_json(HTTPStatus.OK, build_status(prompt_id))
+                self._send_json(HTTPStatus.OK, sync_run_status(prompt_id))
+            except Exception as exc:
+                self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
+            return
+
+        if self.path.startswith("/download/"):
+            parts = self.path.split("/")
+            if len(parts) != 4:
+                self._send_json(HTTPStatus.BAD_REQUEST, {"error": "invalid download path"})
+                return
+            _, _, prompt_id, output_index_raw = parts
+            try:
+                output_index = int(output_index_raw)
+            except ValueError:
+                self._send_json(HTTPStatus.BAD_REQUEST, {"error": "invalid output index"})
+                return
+
+            run = get_run(prompt_id)
+            outputs = run.get("outputs", []) if run else []
+            if output_index < 0 or output_index >= len(outputs):
+                self._send_json(HTTPStatus.NOT_FOUND, {"error": "output not found"})
+                return
+
+            output = outputs[output_index]
+            file_path = resolve_output_path(output)
+            if not file_path.exists() or COMFYUI_OUTPUT_DIR.resolve() not in file_path.parents:
+                self._send_json(HTTPStatus.NOT_FOUND, {"error": "file not found"})
+                return
+
+            try:
+                body = file_path.read_bytes()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "application/octet-stream")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header(
+                    "Content-Disposition",
+                    f"attachment; filename={parse.quote(file_path.name)}",
+                )
+                self.end_headers()
+                self.wfile.write(body)
             except Exception as exc:
                 self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
             return
@@ -342,16 +664,30 @@ class Handler(BaseHTTPRequestHandler):
                 f"{COMFYUI_URL.rstrip('/')}/prompt",
                 {"prompt": prompt, "client_id": client_id},
             )
+            prompt_id = response.get("prompt_id")
+            if not prompt_id:
+                raise RuntimeError("ComfyUI did not return a prompt_id")
+            raw_request = {"prompt": prompt, "client_id": client_id}
+            record_run_submission(
+                prompt_id=prompt_id,
+                workflow_name=workflow_name,
+                client_id=client_id,
+                overrides=overrides,
+                raw_request=raw_request,
+                raw_response=response,
+            )
             result: dict[str, Any] = {
                 "ok": True,
                 "workflow": workflow_name,
                 "client_id": client_id,
-                "prompt_id": response.get("prompt_id"),
+                "prompt_id": prompt_id,
                 "status": "submitted",
             }
             if wait and result["prompt_id"]:
+                history = wait_for_history(result["prompt_id"], timeout_s)
+                update_run_record(result["prompt_id"], status="completed", history=history)
                 result["status"] = "completed"
-                result["history"] = wait_for_history(result["prompt_id"], timeout_s)
+                result["history"] = history
             self._send_json(HTTPStatus.OK, result)
         except Exception as exc:
             self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
@@ -360,6 +696,7 @@ class Handler(BaseHTTPRequestHandler):
 def main() -> None:
     if not WORKFLOW_DIR.exists():
         raise SystemExit(f"workflow directory not found: {WORKFLOW_DIR}")
+    ensure_db()
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     print(f"ComfyUI gateway listening on http://{HOST}:{PORT}")
     server.serve_forever()
