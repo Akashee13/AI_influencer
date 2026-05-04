@@ -30,6 +30,8 @@ from urllib import error, request
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_WORKFLOW = ROOT / "comfyui" / "workflows" / "mumbai-yoga-anchor-v1.json"
+WEB_DIR = ROOT / "web"
+DASHBOARD_PATH = WEB_DIR / "dashboard.html"
 COMFYUI_URL = os.environ.get("COMFYUI_URL", "http://127.0.0.1:8188")
 WORKFLOW_DIR = Path(os.environ.get("WORKFLOW_DIR", str(DEFAULT_WORKFLOW.parent)))
 API_TOKEN = os.environ.get("COMFYUI_GATEWAY_TOKEN", "")
@@ -353,6 +355,10 @@ def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text())
 
 
+def list_workflow_files() -> list[str]:
+    return sorted(path.name for path in WORKFLOW_DIR.glob("*.json"))
+
+
 def build_link_map(workflow: dict[str, Any]) -> dict[int, tuple[int, int, int, int, str]]:
     link_map: dict[int, tuple[int, int, int, int, str]] = {}
     for raw in workflow.get("links", []):
@@ -637,7 +643,21 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
         return False
 
+    def _send_bytes(self, status: int, body: bytes, content_type: str) -> None:
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self) -> None:  # noqa: N802
+        if self.path in ("/", "/dashboard"):
+            if not DASHBOARD_PATH.exists():
+                self._send_json(HTTPStatus.NOT_FOUND, {"error": "dashboard not found"})
+                return
+            self._send_bytes(HTTPStatus.OK, DASHBOARD_PATH.read_bytes(), "text/html; charset=utf-8")
+            return
+
         if self.path == "/healthz":
             try:
                 queue = api_get(f"{COMFYUI_URL.rstrip('/')}/queue")
@@ -647,6 +667,13 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if not self._require_auth():
+            return
+
+        if self.path == "/workflows":
+            try:
+                self._send_json(HTTPStatus.OK, {"ok": True, "workflows": list_workflow_files()})
+            except Exception as exc:
+                self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
             return
 
         if self.path == "/queue":
@@ -800,6 +827,8 @@ class Handler(BaseHTTPRequestHandler):
 def main() -> None:
     if not WORKFLOW_DIR.exists():
         raise SystemExit(f"workflow directory not found: {WORKFLOW_DIR}")
+    if not DASHBOARD_PATH.exists():
+        raise SystemExit(f"dashboard not found: {DASHBOARD_PATH}")
     ensure_db()
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     print(f"ComfyUI gateway listening on http://{HOST}:{PORT}")

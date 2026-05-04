@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ComfyUI Control Panel</title>
+    <style>
+      :root {
+        --bg: #f2efe8;
+        --panel: rgba(255, 252, 247, 0.88);
+        --panel-strong: #fffaf1;
+        --ink: #1e1a16;
+        --muted: #6d6256;
+        --line: rgba(56, 43, 31, 0.12);
+        --accent: #a54f2d;
+        --accent-soft: #f2d2be;
+        --ok: #246b45;
+        --warn: #8e5d15;
+        --chip: #efe4d4;
+        --shadow: 0 16px 50px rgba(60, 42, 20, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(165, 79, 45, 0.18), transparent 28%),
+          radial-gradient(circle at top right, rgba(36, 107, 69, 0.14), transparent 24%),
+          linear-gradient(180deg, #f8f3eb 0%, #f2efe8 42%, #ebe3d7 100%);
+        font-family: Georgia, "Times New Roman", serif;
+      }
+
+      .shell {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 28px 20px 44px;
+      }
+
+      .hero {
+        display: grid;
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(34px, 5vw, 64px);
+        line-height: 0.95;
+        font-weight: 600;
+      }
+
+      .hero p {
+        max-width: 760px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 17px;
+        line-height: 1.6;
+      }
+
+      .grid {
+        display: grid;
+        gap: 18px;
+      }
+
+      .grid.main {
+        grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+        align-items: start;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(12px);
+      }
+
+      .panel-inner {
+        padding: 20px;
+      }
+
+      .panel h2 {
+        margin: 0 0 14px;
+        font-size: 24px;
+        font-weight: 600;
+      }
+
+      .subcopy {
+        margin: 0 0 16px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.55;
+      }
+
+      .field {
+        display: grid;
+        gap: 7px;
+        margin-bottom: 14px;
+      }
+
+      label {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+      }
+
+      input,
+      textarea,
+      select {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px 14px;
+        background: rgba(255, 255, 255, 0.72);
+        color: var(--ink);
+        font: inherit;
+      }
+
+      textarea {
+        min-height: 110px;
+        resize: vertical;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 12px 18px;
+        background: var(--accent);
+        color: #fff8f2;
+        font: inherit;
+        cursor: pointer;
+        transition: transform 140ms ease, opacity 140ms ease;
+      }
+
+      button.secondary {
+        background: #e6d6c3;
+        color: var(--ink);
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: wait;
+        transform: none;
+      }
+
+      .status-line {
+        margin-top: 12px;
+        min-height: 24px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .pillbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .pill {
+        background: var(--chip);
+        border-radius: 999px;
+        padding: 8px 12px;
+        font-size: 13px;
+        color: var(--ink);
+      }
+
+      .sections {
+        display: grid;
+        gap: 18px;
+      }
+
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .section-header h3 {
+        margin: 0;
+        font-size: 22px;
+      }
+
+      .section-header p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .table-wrap {
+        overflow: auto;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.62);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 760px;
+      }
+
+      th,
+      td {
+        text-align: left;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+        font-size: 14px;
+      }
+
+      th {
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+        background: rgba(255, 250, 241, 0.95);
+        position: sticky;
+        top: 0;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .code {
+        font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+        font-size: 12px;
+        word-break: break-all;
+      }
+
+      .state {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        background: var(--chip);
+      }
+
+      .state.running {
+        background: #e8f2e3;
+        color: var(--ok);
+      }
+
+      .state.pending,
+      .state.submitted {
+        background: #f6ead3;
+        color: var(--warn);
+      }
+
+      .downloads {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .downloads a {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 10px;
+        border-radius: 12px;
+        background: #efe4d4;
+        color: var(--ink);
+        text-decoration: none;
+        font-size: 13px;
+      }
+
+      .empty {
+        padding: 18px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .toggle {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      @media (max-width: 980px) {
+        .grid.main {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .row {
+          grid-template-columns: 1fr;
+        }
+
+        .shell {
+          padding-left: 14px;
+          padding-right: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <section class="hero">
+        <div class="eyebrow">ComfyUI Gateway Dashboard</div>
+        <h1>Run, watch, and download from one place.</h1>
+        <p>
+          Submit a locked workflow, monitor active prompts, and browse completed runs without juggling curl commands.
+        </p>
+      </section>
+
+      <div class="grid main">
+        <section class="panel">
+          <div class="panel-inner">
+            <h2>Launch Run</h2>
+            <p class="subcopy">
+              This panel talks to the gateway API directly. Your bearer token stays in your browser local storage for convenience.
+            </p>
+
+            <div class="field">
+              <label for="token">Gateway Token</label>
+              <input id="token" type="password" placeholder="Bearer token">
+            </div>
+
+            <div class="field">
+              <label for="workflow">Workflow</label>
+              <select id="workflow"></select>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <label for="filenamePrefix">Filename Prefix</label>
+                <input id="filenamePrefix" type="text" value="mumbai-yoga-ui">
+              </div>
+              <div class="field">
+                <label for="seed">Seed</label>
+                <input id="seed" type="number" placeholder="Leave blank for locked seed">
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <label for="width">Width</label>
+                <input id="width" type="number" placeholder="Optional">
+              </div>
+              <div class="field">
+                <label for="height">Height</label>
+                <input id="height" type="number" placeholder="Optional">
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="positivePrompt">Positive Prompt Override</label>
+              <textarea id="positivePrompt" placeholder="Optional prompt override"></textarea>
+            </div>
+
+            <div class="field">
+              <label for="negativePrompt">Negative Prompt Override</label>
+              <textarea id="negativePrompt" placeholder="Optional negative prompt override"></textarea>
+            </div>
+
+            <div class="actions">
+              <button id="submitBtn">Submit Run</button>
+              <button id="refreshBtn" class="secondary">Refresh Data</button>
+            </div>
+
+            <div class="status-line" id="submitStatus">Ready.</div>
+          </div>
+        </section>
+
+        <div class="sections">
+          <section class="panel">
+            <div class="panel-inner">
+              <div class="section-header">
+                <div>
+                  <h3>Live Overview</h3>
+                  <p>Quick pulse on what the gateway sees right now.</p>
+                </div>
+                <label class="toggle">
+                  <input id="autoRefresh" type="checkbox" checked>
+                  Auto refresh
+                </label>
+              </div>
+              <div class="pillbar" id="stats"></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-inner">
+              <div class="section-header">
+                <div>
+                  <h3>Active Runs</h3>
+                  <p>Pending and running prompts from the live queue.</p>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Status</th>
+                      <th>Prompt ID</th>
+                      <th>Workflow</th>
+                      <th>Submitted</th>
+                      <th>Overrides</th>
+                    </tr>
+                  </thead>
+                  <tbody id="activeRunsBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-inner">
+              <div class="section-header">
+                <div>
+                  <h3>Completed Runs</h3>
+                  <p>Recent finished runs with direct output downloads.</p>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Status</th>
+                      <th>Prompt ID</th>
+                      <th>Completed</th>
+                      <th>Outputs</th>
+                      <th>Overrides</th>
+                    </tr>
+                  </thead>
+                  <tbody id="completedRunsBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const state = {
+        token: localStorage.getItem("comfyuiGatewayToken") || "",
+        autoRefreshTimer: null,
+      };
+
+      const tokenInput = document.getElementById("token");
+      const workflowSelect = document.getElementById("workflow");
+      const filenamePrefixInput = document.getElementById("filenamePrefix");
+      const seedInput = document.getElementById("seed");
+      const widthInput = document.getElementById("width");
+      const heightInput = document.getElementById("height");
+      const positivePromptInput = document.getElementById("positivePrompt");
+      const negativePromptInput = document.getElementById("negativePrompt");
+      const submitBtn = document.getElementById("submitBtn");
+      const refreshBtn = document.getElementById("refreshBtn");
+      const submitStatus = document.getElementById("submitStatus");
+      const stats = document.getElementById("stats");
+      const activeRunsBody = document.getElementById("activeRunsBody");
+      const completedRunsBody = document.getElementById("completedRunsBody");
+      const autoRefreshCheckbox = document.getElementById("autoRefresh");
+
+      tokenInput.value = state.token;
+
+      tokenInput.addEventListener("input", () => {
+        state.token = tokenInput.value.trim();
+        localStorage.setItem("comfyuiGatewayToken", state.token);
+      });
+
+      autoRefreshCheckbox.addEventListener("change", () => {
+        updateAutoRefresh();
+      });
+
+      submitBtn.addEventListener("click", submitRun);
+      refreshBtn.addEventListener("click", refreshAll);
+
+      function authHeaders(includeJson = false) {
+        const headers = {};
+        if (includeJson) {
+          headers["Content-Type"] = "application/json";
+        }
+        if (state.token) {
+          headers["Authorization"] = `Bearer ${state.token}`;
+        }
+        return headers;
+      }
+
+      async function fetchJson(path, options = {}) {
+        const response = await fetch(path, options);
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || `Request failed with ${response.status}`);
+        }
+        return data;
+      }
+
+      function compactJson(value) {
+        if (!value || typeof value !== "object") {
+          return "None";
+        }
+        return JSON.stringify(value);
+      }
+
+      function renderEmptyRow(target, message, colSpan) {
+        target.innerHTML = `<tr><td class="empty" colspan="${colSpan}">${message}</td></tr>`;
+      }
+
+      function statusBadge(status) {
+        const safe = String(status || "unknown");
+        return `<span class="state ${safe}">${safe}</span>`;
+      }
+
+      function renderDownloads(outputs) {
+        if (!outputs || !outputs.length) {
+          return '<span class="empty">No saved outputs</span>';
+        }
+
+        return `<div class="downloads">${outputs
+          .map((output) => {
+            const name = output.filename || output.relative_path || "download";
+            return `<a href="${output.download_url}" data-download="${output.download_url}">${name}</a>`;
+          })
+          .join("")}</div>`;
+      }
+
+      async function loadWorkflows() {
+        try {
+          const data = await fetchJson("/workflows", {
+            headers: authHeaders(),
+          });
+          const workflows = data.workflows || [];
+          workflowSelect.innerHTML = workflows
+            .map((workflow) => `<option value="${workflow}">${workflow}</option>`)
+            .join("");
+        } catch (error) {
+          workflowSelect.innerHTML = `<option value="">Failed to load workflows</option>`;
+          submitStatus.textContent = error.message;
+        }
+      }
+
+      async function submitRun() {
+        submitBtn.disabled = true;
+        submitStatus.textContent = "Submitting run...";
+
+        try {
+          const overrides = {};
+          if (filenamePrefixInput.value.trim()) {
+            overrides.filename_prefix = filenamePrefixInput.value.trim();
+          }
+          if (seedInput.value.trim()) {
+            overrides.seed = Number(seedInput.value.trim());
+          }
+          if (widthInput.value.trim()) {
+            overrides.width = Number(widthInput.value.trim());
+          }
+          if (heightInput.value.trim()) {
+            overrides.height = Number(heightInput.value.trim());
+          }
+          if (positivePromptInput.value.trim()) {
+            overrides.positive_prompt = positivePromptInput.value.trim();
+          }
+          if (negativePromptInput.value.trim()) {
+            overrides.negative_prompt = negativePromptInput.value.trim();
+          }
+
+          const payload = {
+            workflow: workflowSelect.value,
+            overrides,
+          };
+
+          const data = await fetchJson("/generate", {
+            method: "POST",
+            headers: authHeaders(true),
+            body: JSON.stringify(payload),
+          });
+
+          submitStatus.textContent = `Submitted ${data.prompt_id}.`;
+          await refreshAll();
+        } catch (error) {
+          submitStatus.textContent = error.message;
+        } finally {
+          submitBtn.disabled = false;
+        }
+      }
+
+      async function refreshAll() {
+        try {
+          const [health, active, completed] = await Promise.all([
+            fetchJson("/healthz"),
+            fetchJson("/runs/active", { headers: authHeaders() }),
+            fetchJson("/runs/completed", { headers: authHeaders() }),
+          ]);
+
+          renderStats(health, active, completed);
+          renderActiveRuns(active.runs || []);
+          renderCompletedRuns(completed.runs || []);
+        } catch (error) {
+          submitStatus.textContent = error.message;
+        }
+      }
+
+      function renderStats(health, active, completed) {
+        const queue = health.queue || {};
+        const running = (queue.queue_running || []).length;
+        const pending = (queue.queue_pending || []).length;
+        const completedCount = (completed.runs || []).length;
+        const activeCount = (active.runs || []).length;
+
+        stats.innerHTML = [
+          `<div class="pill">ComfyUI: ${health.comfyui || "unknown"}</div>`,
+          `<div class="pill">Running: ${running}</div>`,
+          `<div class="pill">Pending: ${pending}</div>`,
+          `<div class="pill">Active tracked: ${activeCount}</div>`,
+          `<div class="pill">Completed tracked: ${completedCount}</div>`,
+        ].join("");
+      }
+
+      function renderActiveRuns(runs) {
+        if (!runs.length) {
+          renderEmptyRow(activeRunsBody, "No active runs right now.", 5);
+          return;
+        }
+
+        activeRunsBody.innerHTML = runs
+          .map(
+            (run) => `
+              <tr>
+                <td>${statusBadge(run.status)}</td>
+                <td class="code">${run.prompt_id}</td>
+                <td>${run.workflow_name}</td>
+                <td>${run.submitted_at || ""}</td>
+                <td class="code">${compactJson(run.overrides)}</td>
+              </tr>
+            `
+          )
+          .join("");
+      }
+
+      function renderCompletedRuns(runs) {
+        if (!runs.length) {
+          renderEmptyRow(completedRunsBody, "No completed runs recorded yet.", 5);
+          return;
+        }
+
+        completedRunsBody.innerHTML = runs
+          .map(
+            (run) => `
+              <tr>
+                <td>${statusBadge(run.status)}</td>
+                <td class="code">${run.prompt_id}</td>
+                <td>${run.completed_at || ""}</td>
+                <td>${renderDownloads(run.outputs)}</td>
+                <td class="code">${compactJson(run.overrides)}</td>
+              </tr>
+            `
+          )
+          .join("");
+
+        document.querySelectorAll("[data-download]").forEach((link) => {
+          link.addEventListener("click", (event) => {
+            event.preventDefault();
+            downloadWithAuth(link.getAttribute("data-download"));
+          });
+        });
+      }
+
+      async function downloadWithAuth(path) {
+        try {
+          const response = await fetch(path, {
+            headers: authHeaders(),
+          });
+          if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || `Download failed with ${response.status}`);
+          }
+
+          const blob = await response.blob();
+          const disposition = response.headers.get("Content-Disposition") || "";
+          const match = disposition.match(/filename=([^;]+)/);
+          const filename = match ? decodeURIComponent(match[1]) : "output.bin";
+          const url = URL.createObjectURL(blob);
+          const anchor = document.createElement("a");
+          anchor.href = url;
+          anchor.download = filename.replace(/^"|"$/g, "");
+          document.body.appendChild(anchor);
+          anchor.click();
+          anchor.remove();
+          URL.revokeObjectURL(url);
+        } catch (error) {
+          submitStatus.textContent = error.message;
+        }
+      }
+
+      function updateAutoRefresh() {
+        if (state.autoRefreshTimer) {
+          clearInterval(state.autoRefreshTimer);
+          state.autoRefreshTimer = null;
+        }
+
+        if (autoRefreshCheckbox.checked) {
+          state.autoRefreshTimer = setInterval(refreshAll, 15000);
+        }
+      }
+
+      async function init() {
+        await loadWorkflows();
+        await refreshAll();
+        updateAutoRefresh();
+      }
+
+      init();
+    </script>
+  </body>
+</html>
