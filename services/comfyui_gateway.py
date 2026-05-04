@@ -48,8 +48,13 @@ def api_post(url: str, payload: dict[str, Any]) -> Any:
         data=json.dumps(payload).encode("utf-8"),
         headers={"Content-Type": "application/json"},
     )
-    with request.urlopen(req) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+    try:
+        with request.urlopen(req) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        message = f"HTTP {exc.code}: {body or exc.reason}"
+        raise RuntimeError(message) from exc
 
 
 def load_json(path: Path) -> dict[str, Any]:
