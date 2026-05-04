@@ -92,6 +92,33 @@
       "widgets_values": []
     },
     {
+      "id": 7,
+      "type": "SaveImage",
+      "pos": [
+        669.5250623392561,
+        -134.79511353307348
+      ],
+      "size": [
+        270,
+        270
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 9
+        }
+      ],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "CompyUI"
+      ]
+    },
+    {
       "id": 5,
       "type": "KSampler",
       "pos": [
@@ -140,77 +167,13 @@
         "Node name for S&R": "KSampler"
       },
       "widgets_values": [
-        774215085774890,
-        "fixed",
+        848882658439886,
+        "randomize",
         50,
         2,
         "euler",
         "normal",
         1
-      ]
-    },
-    {
-      "id": 7,
-      "type": "SaveImage",
-      "pos": [
-        669.5250623392561,
-        -134.79511353307348
-      ],
-      "size": [
-        270,
-        270
-      ],
-      "flags": {},
-      "order": 6,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 9
-        }
-      ],
-      "outputs": [],
-      "properties": {},
-      "widgets_values": [
-        "CompyUI"
-      ]
-    },
-    {
-      "id": 2,
-      "type": "CLIPTextEncode",
-      "pos": [
-        246.26212141704957,
-        185.18225074045293
-      ],
-      "size": [
-        400,
-        200
-      ],
-      "flags": {},
-      "order": 2,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "clip",
-          "type": "CLIP",
-          "link": 2
-        }
-      ],
-      "outputs": [
-        {
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "links": [
-            4
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "CLIPTextEncode"
-      },
-      "widgets_values": [
-        "ultra realistic half body lifestyle photo of a naturally attractive Indian woman, Mumbai yoga instructor living in Bangalore, fair-light wheatish Indian skin with warm golden undertones, distinctly Indian facial features, Indian eye shape, Indian facial harmony, natural Indian beauty, oval face shape, naturally defined jawline, moderate cheekbones, deep black-brown Indian eyes, very dark brown eyes that read almost black, thicker natural Indian eyebrows, straight natural Indian nose, softly full natural lips, dark brown-black softly wavy hair, subtle natural makeup, fit toned feminine body, slim waist, toned arms, fuller bust, curvy athletic figure, balanced hourglass body, confident calm expression with a faint warm smile, modern Indian wellness influencer, black athletic sports bra, taupe high-waisted yoga leggings, light blue shirt casually layered open, seated at a premium Bangalore cafe, realistic smartphone photo, natural daylight, realistic skin texture, natural skin pores, sharp focus, in-focus eyes, crisp facial details, polished but believable Indian beauty\n"
       ]
     },
     {
@@ -248,6 +211,43 @@
       },
       "widgets_values": [
         "western celebrity face, generic international model face, non-Indian face, international model face, latina face, middle eastern face, european face, plastic skin, glossy skin, over-smoothed skin, overfilled lips, exaggerated cheekbones, heavy contour makeup, doll face, baby face, masculine face, blurry, blur, out of focus, soft focus, bad anatomy, cartoon, illustration, bindi, forehead dot, nose ring, nose stud\n"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "CLIPTextEncode",
+      "pos": [
+        246.26212141704957,
+        185.18225074045293
+      ],
+      "size": [
+        400,
+        200
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            4
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        "ultra realistic half body lifestyle photo of a naturally attractive Indian woman, Mumbai yoga instructor living in Bangalore, fair-light wheatish Indian skin with warm golden undertones, distinctly Indian facial features, Indian eye shape, Indian facial harmony, natural Indian beauty, oval face shape, naturally defined jawline, moderate cheekbones, deep black-brown Indian eyes, very dark brown eyes that read almost black, thicker natural Indian eyebrows, straight natural Indian nose, softly full natural lips, dark brown-black softly wavy hair, subtle natural makeup, fit toned feminine body, slim waist, toned arms, fuller bust, curvy athletic figure, balanced hourglass body, confident calm expression with a faint warm smile, modern Indian wellness influencer, black athletic sports bra, taupe high-waisted yoga leggings, light blue shirt casually layered open, seated at a premium Bangalore cafe, realistic smartphone photo, natural daylight, realistic skin texture, natural skin pores, sharp focus, in-focus eyes, crisp facial details, polished but believable Indian beauty\n"
       ]
     },
     {
@@ -420,10 +420,10 @@
   "groups": [],
   "extra": {
     "ds": {
-      "scale": 0.5348513997281458,
+      "scale": 0.7981262923500603,
       "offset": [
-        833.6362310300133,
-        532.1435606241984
+        487.34248274537765,
+        386.6564724162548
       ]
     },
     "frontendVersion": "1.42.15",

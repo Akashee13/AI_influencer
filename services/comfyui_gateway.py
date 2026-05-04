@@ -15,9 +15,11 @@ It is intentionally stdlib-only so deployment on the VM stays simple.
 from __future__ import annotations
 
 import base64
+import html
 import json
 import os
 import random
+import re
 import sqlite3
 import time
 import uuid
@@ -35,6 +37,7 @@ DEFAULT_WORKFLOW = ROOT / "comfyui" / "workflows" / "mumbai-yoga-anchor-v1.json"
 WEB_DIR = ROOT / "web"
 DASHBOARD_PATH = WEB_DIR / "dashboard.html"
 COMFYUI_URL = os.environ.get("COMFYUI_URL", "http://127.0.0.1:8188")
+COMFYUI_BROWSER_URL = os.environ.get("COMFYUI_BROWSER_URL", COMFYUI_URL)
 WORKFLOW_DIR = Path(os.environ.get("WORKFLOW_DIR", str(DEFAULT_WORKFLOW.parent)))
 API_TOKEN = os.environ.get("COMFYUI_GATEWAY_TOKEN", "")
 HOST = os.environ.get("COMFYUI_GATEWAY_HOST", "0.0.0.0")
@@ -47,6 +50,15 @@ COMFYUI_INPUT_DIR = Path(
     os.environ.get("COMFYUI_INPUT_DIR", str(Path.home() / "comfy" / "input"))
 )
 ALLOWED_REFERENCE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}
+REMOTE_IMAGE_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+    )
+}
+REMOTE_PAGE_HEADERS = {
+    "User-Agent": "Mozilla/5.0",
+}
 
 
 class WorkflowError(RuntimeError):
@@ -529,6 +541,83 @@ def save_reference_image(filename: str, content_b64: str) -> str:
     return safe_name
 
 
+def guess_suffix_from_content_type(content_type: str) -> str:
+    content_type = (content_type or "").split(";", 1)[0].strip().lower()
+    return {
+        "image/png": ".png",
+        "image/jpeg": ".jpg",
+        "image/jpg": ".jpg",
+        "image/webp": ".webp",
+    }.get(content_type, ".jpg")
+
+
+def extract_preview_image_url(html: str) -> str | None:
+    patterns = (
+        r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
+        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']',
+        r'<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\']([^"\']+)["\']',
+        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+name=["\']twitter:image["\']',
+    )
+    for pattern in patterns:
+        match = re.search(pattern, html, flags=re.IGNORECASE)
+        if match:
+            return html_unescape_url(match.group(1))
+    return None
+
+
+def html_unescape_url(value: str) -> str:
+    return html.unescape(value.strip())
+
+
+def fetch_url_bytes(url: str) -> tuple[bytes, str]:
+    req = request.Request(url, headers=REMOTE_IMAGE_HEADERS)
+    with request.urlopen(req, timeout=30) as resp:
+        content_type = resp.headers.get("Content-Type", "")
+        data = resp.read(15 * 1024 * 1024 + 1)
+        if len(data) > 15 * 1024 * 1024:
+            raise WorkflowError("remote image is too large")
+        return data, content_type
+
+
+def save_reference_image_from_url(source_url: str) -> str:
+    parsed = parse.urlsplit(source_url)
+    if parsed.scheme not in {"http", "https"}:
+        raise WorkflowError("reference URL must start with http or https")
+
+    direct_image = Path(parsed.path).suffix.lower() in ALLOWED_REFERENCE_SUFFIXES
+    target_url = source_url
+
+    if not direct_image:
+        req = request.Request(source_url, headers=REMOTE_PAGE_HEADERS)
+        with request.urlopen(req, timeout=30) as resp:
+            content_type = resp.headers.get("Content-Type", "")
+            if content_type.lower().startswith("image/"):
+                data = resp.read(15 * 1024 * 1024 + 1)
+                if len(data) > 15 * 1024 * 1024:
+                    raise WorkflowError("remote image is too large")
+                suffix = guess_suffix_from_content_type(content_type)
+                filename = sanitize_reference_filename(Path(parsed.path).stem + suffix)
+                COMFYUI_INPUT_DIR.mkdir(parents=True, exist_ok=True)
+                destination = COMFYUI_INPUT_DIR / filename
+                destination.write_bytes(data)
+                return filename
+            body = resp.read(1024 * 1024).decode("utf-8", errors="replace")
+            preview_url = extract_preview_image_url(body)
+            if not preview_url:
+                raise WorkflowError("could not extract a preview image from the provided page")
+            target_url = parse.urljoin(source_url, preview_url)
+
+    data, content_type = fetch_url_bytes(target_url)
+    suffix = Path(parse.urlsplit(target_url).path).suffix.lower()
+    if suffix not in ALLOWED_REFERENCE_SUFFIXES:
+        suffix = guess_suffix_from_content_type(content_type)
+    filename = sanitize_reference_filename(Path(parse.urlsplit(target_url).path).stem + suffix)
+    COMFYUI_INPUT_DIR.mkdir(parents=True, exist_ok=True)
+    destination = COMFYUI_INPUT_DIR / filename
+    destination.write_bytes(data)
+    return filename
+
+
 def list_workflow_files() -> list[str]:
     return sorted(path.name for path in WORKFLOW_DIR.glob("*.json"))
 
@@ -536,6 +625,8 @@ def list_workflow_files() -> list[str]:
 def workflow_defaults(path: Path) -> dict[str, Any]:
     workflow = load_json(path)
     nodes_by_type = {node["type"]: node for node in workflow.get("nodes", [])}
+    extra = workflow.get("extra", {}) if isinstance(workflow.get("extra", {}), dict) else {}
+    ui_defaults = extra.get("ui_defaults", {}) if isinstance(extra.get("ui_defaults", {}), dict) else {}
 
     latent = nodes_by_type.get("EmptyLatentImage", {})
     sampler = nodes_by_type.get("KSampler", {})
@@ -554,9 +645,9 @@ def workflow_defaults(path: Path) -> dict[str, Any]:
     return {
         "name": path.name,
         "defaults": {
-            "width": latent_widgets[0] if len(latent_widgets) > 0 else None,
-            "height": latent_widgets[1] if len(latent_widgets) > 1 else None,
-            "batch_size": latent_widgets[2] if len(latent_widgets) > 2 else None,
+            "width": ui_defaults.get("width", latent_widgets[0] if len(latent_widgets) > 0 else None),
+            "height": ui_defaults.get("height", latent_widgets[1] if len(latent_widgets) > 1 else None),
+            "batch_size": ui_defaults.get("batch_size", latent_widgets[2] if len(latent_widgets) > 2 else None),
             "seed": sampler_widgets[0] if len(sampler_widgets) > 0 else None,
             "control_after_generate": sampler_widgets[1] if len(sampler_widgets) > 1 else None,
             "steps": sampler_widgets[2] if len(sampler_widgets) > 2 else None,
@@ -575,6 +666,29 @@ def workflow_defaults(path: Path) -> dict[str, Any]:
 
 def list_workflow_summaries() -> list[dict[str, Any]]:
     return [workflow_defaults(path) for path in sorted(WORKFLOW_DIR.glob("*.json"))]
+
+
+PROMPT_SECTION_KEYS = (
+    "identity",
+    "composition",
+    "clothing",
+    "background",
+    "mood",
+    "camera",
+)
+
+
+def merge_positive_prompt_sections(sections: Any) -> str:
+    if not isinstance(sections, dict):
+        return ""
+    parts: list[str] = []
+    for key in PROMPT_SECTION_KEYS:
+        value = sections.get(key)
+        if isinstance(value, str):
+            cleaned = value.strip()
+            if cleaned:
+                parts.append(cleaned)
+    return ", ".join(parts)
 
 
 def build_link_map(workflow: dict[str, Any]) -> dict[int, tuple[int, int, int, int, str]]:
@@ -704,8 +818,11 @@ def apply_overrides(workflow: dict[str, Any], overrides: dict[str, Any]) -> None
     save_node = find_nodes_by_type(workflow, "SaveImage")[0]
     load_image_nodes = find_nodes_by_type(workflow, "LoadImage")
 
-    if "positive_prompt" in overrides:
-        positive_node["widgets_values"][0] = overrides["positive_prompt"]
+    merged_positive_prompt = overrides.get("positive_prompt")
+    if not merged_positive_prompt and "positive_prompt_sections" in overrides:
+        merged_positive_prompt = merge_positive_prompt_sections(overrides.get("positive_prompt_sections"))
+    if merged_positive_prompt:
+        positive_node["widgets_values"][0] = merged_positive_prompt
     if "negative_prompt" in overrides:
         negative_node["widgets_values"][0] = overrides["negative_prompt"]
     if latent_nodes:
@@ -873,7 +990,12 @@ def active_runs_payload(*, limit: int = 100, offset: int = 0, query: str = "") -
         offset=offset,
         query=query,
     )
-    return {"ok": True, "runs": [summarize_run(run) for run in runs], "total": total}
+    return {
+        "ok": True,
+        "runs": [summarize_run(run) for run in runs],
+        "total": total,
+        "comfyui_browser_url": COMFYUI_BROWSER_URL,
+    }
 
 
 def completed_runs_payload(*, limit: int = 50, offset: int = 0, query: str = "") -> dict[str, Any]:
@@ -945,7 +1067,15 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/healthz":
             try:
                 queue = api_get(f"{COMFYUI_URL.rstrip('/')}/queue")
-                self._send_json(HTTPStatus.OK, {"ok": True, "comfyui": "reachable", "queue": queue})
+                self._send_json(
+                    HTTPStatus.OK,
+                    {
+                        "ok": True,
+                        "comfyui": "reachable",
+                        "queue": queue,
+                        "comfyui_browser_url": COMFYUI_BROWSER_URL,
+                    },
+                )
             except Exception as exc:  # pragma: no cover - best effort health endpoint
                 self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
             return
@@ -1073,6 +1203,32 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         if not self._require_auth():
+            return
+
+        if self.path == "/upload/reference-url":
+            raw_length = self.headers.get("Content-Length", "0")
+            length = int(raw_length)
+            body = self.rfile.read(length)
+            payload = json.loads(body.decode("utf-8") or "{}")
+            source_url = str(payload.get("url", "")).strip()
+            if not source_url:
+                self._send_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "missing url"})
+                return
+            try:
+                saved_name = save_reference_image_from_url(source_url)
+                self._send_json(
+                    HTTPStatus.OK,
+                    {
+                        "ok": True,
+                        "filename": saved_name,
+                        "input_dir": str(COMFYUI_INPUT_DIR),
+                        "source_url": source_url,
+                    },
+                )
+            except WorkflowError as exc:
+                self._send_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
             return
 
         if self.path == "/upload/reference-image":

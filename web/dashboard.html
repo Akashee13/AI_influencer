@@ -323,7 +323,7 @@
 
       button:disabled {
         opacity: 0.5;
-        cursor: wait;
+        cursor: not-allowed;
         transform: none;
       }
 
@@ -336,6 +336,24 @@
         background: transparent;
         box-shadow: none;
         border: 1px solid var(--line-2);
+      }
+
+      a.link-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        border-radius: 999px;
+        padding: 12px 18px;
+        background: transparent;
+        color: white;
+        border: 1px solid var(--line-2);
+        font: inherit;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        cursor: pointer;
+        transition: transform 140ms ease, opacity 140ms ease, box-shadow 140ms ease;
+        box-shadow: none;
       }
 
       .status-line {
@@ -468,6 +486,64 @@
         line-height: 1.7;
       }
 
+      .prompt-sections {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 14px;
+      }
+
+      .prompt-card {
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        background: rgba(255,255,255,0.03);
+        overflow: hidden;
+      }
+
+      .prompt-card-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        gap: 10px;
+        padding: 14px 16px 0;
+      }
+
+      .prompt-card-head strong {
+        display: block;
+        font-size: 14px;
+      }
+
+      .prompt-card-head span {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .prompt-card textarea {
+        min-height: 148px;
+        border: 0;
+        background: transparent;
+      }
+
+      .mini-chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 0 16px 12px;
+      }
+
+      .mini-chip {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255,255,255,0.04);
+        color: var(--muted);
+        font-size: 11px;
+        padding: 7px 10px;
+        cursor: pointer;
+      }
+
       .prompt-footer {
         display: flex;
         justify-content: space-between;
@@ -550,13 +626,18 @@
 
       .queue-item {
         display: grid;
-        grid-template-columns: auto 1fr auto;
+        grid-template-columns: auto 1fr auto auto;
         gap: 12px;
         align-items: center;
         padding: 14px;
         border-radius: 18px;
         border: 1px solid var(--line);
         background: rgba(255,255,255,0.03);
+      }
+
+      .queue-actions {
+        display: flex;
+        justify-content: flex-end;
       }
 
       .queue-item .meta {
@@ -943,6 +1024,10 @@
           align-items: stretch;
         }
 
+        .prompt-sections {
+          grid-template-columns: 1fr;
+        }
+
         .run-grid {
           grid-template-columns: 1fr;
         }
@@ -953,6 +1038,15 @@
 
         .run-delete {
           width: 100%;
+        }
+
+        .queue-item {
+          grid-template-columns: 1fr;
+          align-items: stretch;
+        }
+
+        .queue-actions {
+          justify-content: stretch;
         }
       }
     </style>
@@ -1002,8 +1096,12 @@
                   <input id="referenceImage" type="file" accept="image/png,image/jpeg,image/webp">
                   <button id="clearReferenceImageBtn" class="ghost" type="button">Clear</button>
                 </div>
+                <div class="file-row" style="margin-top:10px;">
+                  <input id="referenceImageUrl" type="url" placeholder="Paste public Instagram post or direct image URL">
+                  <button id="fetchReferenceImageBtn" class="secondary" type="button">Fetch Link</button>
+                </div>
                 <div class="field-help" id="referenceImageHint">
-                  Upload a reference still when the workflow supports image guidance. Video support will come through a separate motion workflow branch.
+                  Upload a reference still, or paste a public Instagram post link and fetch its preview image when the workflow supports image guidance.
                 </div>
                 <div class="file-chip" id="referenceImageChip" hidden>
                   <strong>Reference</strong>
@@ -1116,13 +1214,98 @@
                 </div>
                 <div class="composer-body">
                   <div class="preset-strip">
-                    <button class="chip preset-chip" data-fill="identity">Identity Anchor</button>
-                    <button class="chip preset-chip" data-fill="premium">Premium Wellness</button>
-                    <button class="chip preset-chip" data-fill="camera">Sharp Camera Realism</button>
+                    <button class="chip preset-chip" data-fill="identity">Anchor Reset</button>
+                    <button class="chip preset-chip" data-fill="camera">Sharp Camera</button>
+                    <button class="chip preset-chip" data-fill="background">Luxury Interior</button>
                   </div>
 
                   <div class="prompt-shell" style="margin-top: 14px;">
-                    <textarea id="positivePrompt" placeholder="Type your positive prompt override here."></textarea>
+                    <div class="prompt-sections">
+                      <div class="prompt-card">
+                        <div class="prompt-card-head">
+                          <div>
+                            <strong>Identity</strong>
+                            <span>Face, body fit, ethnicity, and anchor continuity.</span>
+                          </div>
+                        </div>
+                        <textarea id="positiveIdentity" placeholder="Anchor identity prompt"></textarea>
+                        <div class="mini-chip-row">
+                          <button class="mini-chip section-fill" type="button" data-section="identity" data-value="anchor">Anchor Base</button>
+                          <button class="mini-chip section-fill" type="button" data-section="identity" data-value="luxe">Luxury Tone</button>
+                        </div>
+                      </div>
+                      <div class="prompt-card">
+                        <div class="prompt-card-head">
+                          <div>
+                            <strong>Composition / Pose</strong>
+                            <span>Framing, body angle, and pose direction.</span>
+                          </div>
+                        </div>
+                        <textarea id="positiveComposition" placeholder="Composition and pose"></textarea>
+                        <div class="mini-chip-row">
+                          <button class="mini-chip section-fill" type="button" data-section="composition" data-value="seated">Seated</button>
+                          <button class="mini-chip section-fill" type="button" data-section="composition" data-value="standing">Standing</button>
+                          <button class="mini-chip section-fill" type="button" data-section="composition" data-value="prayer">Prayer Pose</button>
+                        </div>
+                      </div>
+                      <div class="prompt-card">
+                        <div class="prompt-card-head">
+                          <div>
+                            <strong>Clothing / Styling</strong>
+                            <span>Wardrobe adapted to your anchor brand.</span>
+                          </div>
+                        </div>
+                        <textarea id="positiveClothing" placeholder="Clothing and styling"></textarea>
+                        <div class="mini-chip-row">
+                          <button class="mini-chip section-fill" type="button" data-section="clothing" data-value="athleisure">Athleisure</button>
+                          <button class="mini-chip section-fill" type="button" data-section="clothing" data-value="luxe">Luxury Casual</button>
+                          <button class="mini-chip section-fill" type="button" data-section="clothing" data-value="studio">Studio Set</button>
+                        </div>
+                      </div>
+                      <div class="prompt-card">
+                        <div class="prompt-card-head">
+                          <div>
+                            <strong>Background / Location</strong>
+                            <span>Set the environment and context.</span>
+                          </div>
+                        </div>
+                        <textarea id="positiveBackground" placeholder="Background and location"></textarea>
+                        <div class="mini-chip-row">
+                          <button class="mini-chip section-fill" type="button" data-section="background" data-value="cafe">Cafe</button>
+                          <button class="mini-chip section-fill" type="button" data-section="background" data-value="apartment">Apartment</button>
+                          <button class="mini-chip section-fill" type="button" data-section="background" data-value="studio">Yoga Studio</button>
+                          <button class="mini-chip section-fill" type="button" data-section="background" data-value="resort">Resort</button>
+                        </div>
+                      </div>
+                      <div class="prompt-card">
+                        <div class="prompt-card-head">
+                          <div>
+                            <strong>Mood / Expression</strong>
+                            <span>Emotional tone and expression.</span>
+                          </div>
+                        </div>
+                        <textarea id="positiveMood" placeholder="Mood and expression"></textarea>
+                        <div class="mini-chip-row">
+                          <button class="mini-chip section-fill" type="button" data-section="mood" data-value="warm">Warm</button>
+                          <button class="mini-chip section-fill" type="button" data-section="mood" data-value="serene">Serene</button>
+                          <button class="mini-chip section-fill" type="button" data-section="mood" data-value="editorial">Editorial</button>
+                        </div>
+                      </div>
+                      <div class="prompt-card">
+                        <div class="prompt-card-head">
+                          <div>
+                            <strong>Camera / Lighting / Realism</strong>
+                            <span>Lens feel, lighting, and realism treatment.</span>
+                          </div>
+                        </div>
+                        <textarea id="positiveCamera" placeholder="Camera, lighting, realism"></textarea>
+                        <div class="mini-chip-row">
+                          <button class="mini-chip section-fill" type="button" data-section="camera" data-value="smartphone">Smartphone</button>
+                          <button class="mini-chip section-fill" type="button" data-section="camera" data-value="daylight">Daylight</button>
+                          <button class="mini-chip section-fill" type="button" data-section="camera" data-value="luxe">Luxury Editorial</button>
+                        </div>
+                      </div>
+                    </div>
                     <div class="prompt-footer">
                       <div class="token-row">
                         <div class="chip"><strong>Workflow</strong> <span id="workflowChip">loading...</span></div>
@@ -1198,28 +1381,70 @@
       const PRESETS = {
         cafe: {
           prefix: "mumbai-cafe",
-          positive:
-            "ultra realistic lifestyle portrait of the same face identity as the locked Indian wellness anchor, premium Bangalore cafe atmosphere, warm natural daylight, polished athleisure styling, calm confidence, realistic skin texture, crisp eyes, believable smartphone-camera realism",
+          sections: {
+            identity: "same face identity as the locked Indian wellness anchor, distinctly Indian facial features, fair-light wheatish Indian skin with warm golden undertones, deep black-brown Indian eyes, natural Indian eyebrows, fit toned feminine body, slim waist, toned arms, balanced hourglass body, believable premium creator presence",
+            composition: "half body seated portrait, relaxed shoulders, natural front-facing angle, casual creator moment",
+            clothing: "black athletic sports bra, taupe leggings, pale blue open shirt, premium athleisure styling",
+            background: "premium Bangalore cafe interior, soft daylight, warm wood, tasteful upscale lifestyle setting",
+            mood: "calm confidence, faint warm smile, polished but approachable creator energy",
+            camera: "ultra realistic smartphone editorial photo, crisp eyes, sharp focus, natural skin texture, believable lighting",
+          },
         },
         mirror: {
           prefix: "mumbai-mirror",
-          positive:
-            "ultra realistic upscale apartment mirror portrait of the same face identity as the locked Indian wellness anchor, editorial athleisure look, subtle luxury, realistic phone capture, sharp focus, natural reflections, premium creator energy",
+          sections: {
+            identity: "same face identity as the locked Indian wellness anchor, authentic Indian facial features, warm golden undertones, dark expressive eyes, toned feminine body, balanced hourglass silhouette",
+            composition: "standing mirror portrait, confident upright posture, editorial mirror framing, natural body angle",
+            clothing: "premium athleisure set, clean luxury styling, fitted activewear with tasteful layering",
+            background: "upscale modern apartment, subtle luxury decor, clean mirror setup, refined interior lines",
+            mood: "quiet confidence, premium creator energy, self-assured but natural expression",
+            camera: "realistic phone capture, natural reflections, crisp detail, realistic skin texture, sharp focus",
+          },
         },
         studio: {
           prefix: "mumbai-studio",
-          positive:
-            "ultra realistic yoga studio portrait of the same face identity as the locked Indian wellness anchor, composed posture, premium wellness brand aesthetic, authentic Indian features, clean daylight, realistic fabric texture, sharp facial detail",
+          sections: {
+            identity: "same face identity as the locked Indian wellness anchor, authentic Indian facial features, warm golden undertones, dark eyes, fit toned feminine body, athletic grace",
+            composition: "composed yoga portrait, elegant centered framing, balanced posture, premium wellness shoot composition",
+            clothing: "premium coordinated yoga set, refined neutral tones, flattering but believable wellness styling",
+            background: "clean upscale yoga studio, airy daylight, minimal decor, premium wellness brand setting",
+            mood: "centered, serene, composed, quietly aspirational expression",
+            camera: "realistic daylight portrait, sharp facial detail, realistic fabric texture, clean depth, high realism",
+          },
         },
       };
 
-      const QUICK_FILL = {
-        identity:
-          "same face identity as the locked Indian wellness anchor, distinctly Indian facial features, fair-light wheatish Indian skin with warm golden undertones, deep black-brown Indian eyes, natural Indian eyebrows, believable premium creator presence",
-        premium:
-          "premium Indian wellness creator look, polished athleisure styling, balanced hourglass body, elegant natural makeup, modern Bangalore lifestyle energy",
-        camera:
-          "ultra realistic photo, realistic skin texture, sharp focus, crisp eyes, believable lighting, smartphone editorial realism, no plastic skin",
+      const SECTION_AUTOFILL = {
+        identity: {
+          anchor: "same face identity as the locked Indian wellness anchor, distinctly Indian facial features, fair-light wheatish Indian skin with warm golden undertones, deep black-brown Indian eyes, natural Indian eyebrows, fit toned feminine body, balanced hourglass body, believable premium creator presence",
+          luxe: "premium Indian wellness creator look, elegant natural makeup, healthy glow, toned feminine body, polished luxury-wellness presence",
+        },
+        composition: {
+          seated: "half body seated pose, relaxed shoulders, natural front-facing camera angle, polished candid framing",
+          standing: "standing portrait, strong upright posture, flattering three-quarter body angle, editorial framing",
+          prayer: "hands together prayer pose, centered body line, composed yoga portrait framing",
+        },
+        clothing: {
+          athleisure: "black athletic sports bra, taupe leggings, pale blue open shirt, premium athleisure styling",
+          luxe: "soft neutral knitwear, fitted luxury lifestyle styling, understated expensive details",
+          studio: "coordinated yoga set in refined neutral tones, flattering wellness styling",
+        },
+        background: {
+          cafe: "premium Bangalore cafe interior, warm daylight, tasteful upscale lifestyle setting",
+          apartment: "upscale modern apartment, subtle luxury decor, clean premium interior",
+          studio: "clean upscale yoga studio, airy daylight, minimal decor, premium wellness environment",
+          resort: "elevated tropical resort setting, soft daylight, calm luxury vacation atmosphere",
+        },
+        mood: {
+          warm: "calm confidence, faint warm smile, approachable creator energy",
+          serene: "serene, centered, composed, quietly aspirational expression",
+          editorial: "self-assured expression, premium editorial mood, subtle intensity",
+        },
+        camera: {
+          smartphone: "ultra realistic smartphone editorial photo, crisp eyes, sharp focus, natural skin texture, believable lighting",
+          daylight: "natural daylight realism, clean skin texture, sharp detail, believable contrast",
+          luxe: "premium editorial realism, refined depth, polished but believable camera quality",
+        },
       };
 
       const state = {
@@ -1235,6 +1460,7 @@
         currentWorkflow: "",
         workflows: [],
         referenceImageFilename: "",
+        comfyuiBrowserUrl: "",
       };
 
       const tokenInput = document.getElementById("token");
@@ -1242,6 +1468,8 @@
       const workflowSelect = document.getElementById("workflow");
       const workflowCapabilities = document.getElementById("workflowCapabilities");
       const referenceImageInput = document.getElementById("referenceImage");
+      const referenceImageUrlInput = document.getElementById("referenceImageUrl");
+      const fetchReferenceImageBtn = document.getElementById("fetchReferenceImageBtn");
       const clearReferenceImageBtn = document.getElementById("clearReferenceImageBtn");
       const referenceImageHint = document.getElementById("referenceImageHint");
       const referenceImageChip = document.getElementById("referenceImageChip");
@@ -1251,7 +1479,12 @@
       const widthInput = document.getElementById("width");
       const heightInput = document.getElementById("height");
       const batchSizeInput = document.getElementById("batchSize");
-      const positivePromptInput = document.getElementById("positivePrompt");
+      const positiveIdentityInput = document.getElementById("positiveIdentity");
+      const positiveCompositionInput = document.getElementById("positiveComposition");
+      const positiveClothingInput = document.getElementById("positiveClothing");
+      const positiveBackgroundInput = document.getElementById("positiveBackground");
+      const positiveMoodInput = document.getElementById("positiveMood");
+      const positiveCameraInput = document.getElementById("positiveCamera");
       const negativePromptInput = document.getElementById("negativePrompt");
       const submitBtn = document.getElementById("submitBtn");
       const refreshBtn = document.getElementById("refreshBtn");
@@ -1271,6 +1504,14 @@
       const workflowChip = document.getElementById("workflowChip");
       const prefixChip = document.getElementById("prefixChip");
       const scrollToGalleryBtn = document.getElementById("scrollToGalleryBtn");
+      const promptSectionInputs = {
+        identity: positiveIdentityInput,
+        composition: positiveCompositionInput,
+        clothing: positiveClothingInput,
+        background: positiveBackgroundInput,
+        mood: positiveMoodInput,
+        camera: positiveCameraInput,
+      };
 
       tokenInput.value = state.token;
       rememberTokenCheckbox.checked = state.rememberToken;
@@ -1294,6 +1535,19 @@
         if (includeJson) headers["Content-Type"] = "application/json";
         if (state.token) headers["Authorization"] = `Bearer ${state.token}`;
         return headers;
+      }
+
+      async function withButtonBusy(button, label, work) {
+        const previousText = button.textContent;
+        const previousDisabled = button.disabled;
+        button.disabled = true;
+        button.textContent = label;
+        try {
+          return await work();
+        } finally {
+          button.disabled = previousDisabled;
+          button.textContent = previousText;
+        }
       }
 
       async function fetchJson(path, options = {}) {
@@ -1358,9 +1612,11 @@
           ? "This workflow accepts a reference image and uses it as the starting composition."
           : "This workflow is text-first only right now. Reference image upload is disabled until you choose an img2img workflow.";
         referenceImageInput.disabled = !supportsReference;
+        referenceImageUrlInput.disabled = !supportsReference;
+        fetchReferenceImageBtn.disabled = !supportsReference;
         clearReferenceImageBtn.disabled = !supportsReference && !state.referenceImageFilename;
         referenceImageHint.textContent = supportsReference
-          ? "Upload a still image to steer pose and composition for this workflow."
+          ? "Upload a still image, or paste a public Instagram post link to steer pose and composition for this workflow."
           : "Pick a workflow with image guidance to enable reference upload. Video support will come in a later motion workflow.";
         referenceImageChip.hidden = !state.referenceImageFilename;
         referenceImageName.textContent = state.referenceImageFilename || "None";
@@ -1379,7 +1635,12 @@
         widthInput.value = defaults.width ?? "";
         heightInput.value = defaults.height ?? "";
         batchSizeInput.value = defaults.batch_size ?? "";
-        positivePromptInput.value = defaults.positive_prompt ?? "";
+        positiveIdentityInput.value = defaults.positive_prompt ?? "";
+        positiveCompositionInput.value = "";
+        positiveClothingInput.value = "";
+        positiveBackgroundInput.value = "";
+        positiveMoodInput.value = "";
+        positiveCameraInput.value = "";
         negativePromptInput.value = defaults.negative_prompt ?? "";
         updateComposerChips();
         updateReferenceImageUi();
@@ -1389,6 +1650,17 @@
         const raw = seedInput.value.trim();
         if (!raw) return null;
         return Number(raw);
+      }
+
+      function positivePromptSectionsPayload() {
+        return {
+          identity: positiveIdentityInput.value.trim(),
+          composition: positiveCompositionInput.value.trim(),
+          clothing: positiveClothingInput.value.trim(),
+          background: positiveBackgroundInput.value.trim(),
+          mood: positiveMoodInput.value.trim(),
+          camera: positiveCameraInput.value.trim(),
+        };
       }
 
       async function uploadReferenceImage(file) {
@@ -1415,6 +1687,19 @@
           : "Reference image uploaded.";
       }
 
+      async function uploadReferenceImageFromUrl(url) {
+        const data = await fetchJson("/upload/reference-url", {
+          method: "POST",
+          headers: authHeaders(true),
+          body: JSON.stringify({ url }),
+        });
+        state.referenceImageFilename = data.filename || "";
+        updateReferenceImageUi();
+        submitStatus.textContent = state.referenceImageFilename
+          ? `Fetched reference image ${state.referenceImageFilename}.`
+          : "Reference image fetched.";
+      }
+
       async function loadWorkflows() {
         try {
           const data = await fetchJson("/workflows", { headers: authHeaders() });
@@ -1434,67 +1719,78 @@
       function applyPreset(name) {
         const preset = PRESETS[name];
         if (!preset) return;
-        positivePromptInput.value = preset.positive;
+        Object.entries(preset.sections || {}).forEach(([key, value]) => {
+          const input = promptSectionInputs[key];
+          if (input) input.value = value;
+        });
         filenamePrefixInput.value = preset.prefix;
         updateComposerChips();
       }
 
       function appendQuickFill(name) {
-        const snippet = QUICK_FILL[name];
-        if (!snippet) return;
-        const existing = positivePromptInput.value.trim();
-        positivePromptInput.value = existing ? `${existing}, ${snippet}` : snippet;
+        const section = name === "identity" ? "identity" : name === "camera" ? "camera" : "background";
+        const variant = name === "identity" ? "anchor" : name === "camera" ? "smartphone" : "apartment";
+        fillPromptSection(section, variant);
+      }
+
+      function fillPromptSection(section, variant) {
+        const snippet = SECTION_AUTOFILL[section]?.[variant];
+        const input = promptSectionInputs[section];
+        if (!snippet || !input) return;
+        input.value = snippet;
       }
 
       async function submitRun() {
-        submitBtn.disabled = true;
         submitStatus.textContent = "Submitting run...";
-        try {
-          const overrides = {};
-          const workflow = currentWorkflowDefinition();
-          if (filenamePrefixInput.value.trim()) overrides.filename_prefix = filenamePrefixInput.value.trim();
-          overrides.seed = normalizedSeedOverride();
-          if (widthInput.value.trim()) overrides.width = Number(widthInput.value.trim());
-          if (heightInput.value.trim()) overrides.height = Number(heightInput.value.trim());
-          if (batchSizeInput.value.trim()) overrides.batch_size = Number(batchSizeInput.value.trim());
-          if (positivePromptInput.value.trim()) overrides.positive_prompt = positivePromptInput.value.trim();
-          if (negativePromptInput.value.trim()) overrides.negative_prompt = negativePromptInput.value.trim();
-          if (workflowSupportsReferenceImage(workflow)) {
-            if (!state.referenceImageFilename) {
-              throw new Error("Upload a reference image before submitting this workflow.");
+        await withButtonBusy(submitBtn, "Submitting...", async () => {
+          try {
+            const overrides = {};
+            const workflow = currentWorkflowDefinition();
+            if (filenamePrefixInput.value.trim()) overrides.filename_prefix = filenamePrefixInput.value.trim();
+            overrides.seed = normalizedSeedOverride();
+            if (widthInput.value.trim()) overrides.width = Number(widthInput.value.trim());
+            if (heightInput.value.trim()) overrides.height = Number(heightInput.value.trim());
+            if (batchSizeInput.value.trim()) overrides.batch_size = Number(batchSizeInput.value.trim());
+            overrides.positive_prompt_sections = positivePromptSectionsPayload();
+            if (negativePromptInput.value.trim()) overrides.negative_prompt = negativePromptInput.value.trim();
+            if (workflowSupportsReferenceImage(workflow)) {
+              if (!state.referenceImageFilename) {
+                throw new Error("Upload a reference image before submitting this workflow.");
+              }
+              overrides.reference_image = state.referenceImageFilename;
             }
-            overrides.reference_image = state.referenceImageFilename;
+
+            const data = await fetchJson("/generate", {
+              method: "POST",
+              headers: authHeaders(true),
+              body: JSON.stringify({ workflow: workflowSelect.value, overrides }),
+            });
+
+            submitStatus.textContent = `Submitted ${data.prompt_id}.`;
+            state.selectedPromptId = data.prompt_id;
+            await refreshAll();
+            await loadRunDetail(data.prompt_id);
+          } catch (error) {
+            submitStatus.textContent = error.message;
           }
-
-          const data = await fetchJson("/generate", {
-            method: "POST",
-            headers: authHeaders(true),
-            body: JSON.stringify({ workflow: workflowSelect.value, overrides }),
-          });
-
-          submitStatus.textContent = `Submitted ${data.prompt_id}.`;
-          state.selectedPromptId = data.prompt_id;
-          await refreshAll();
-          await loadRunDetail(data.prompt_id);
-        } catch (error) {
-          submitStatus.textContent = error.message;
-        } finally {
-          submitBtn.disabled = false;
-        }
+        });
       }
 
       async function refreshAll() {
-        try {
-          const [health, active] = await Promise.all([
-            fetchJson("/healthz"),
-            fetchJson("/runs/active?limit=100", { headers: authHeaders() }),
-          ]);
-          renderStats(health, active);
-          renderActiveRuns(active.runs || []);
-          await refreshCompletedRuns();
-        } catch (error) {
-          submitStatus.textContent = error.message;
-        }
+        await withButtonBusy(refreshBtn, "Refreshing...", async () => {
+          try {
+            const [health, active] = await Promise.all([
+              fetchJson("/healthz"),
+              fetchJson("/runs/active?limit=100", { headers: authHeaders() }),
+            ]);
+            state.comfyuiBrowserUrl = active.comfyui_browser_url || health.comfyui_browser_url || state.comfyuiBrowserUrl;
+            renderStats(health, active);
+            renderActiveRuns(active.runs || []);
+            await refreshCompletedRuns();
+          } catch (error) {
+            submitStatus.textContent = error.message;
+          }
+        });
       }
 
       async function refreshCompletedRuns() {
@@ -1561,8 +1857,23 @@
               <div class="sub code">${escapeHtml(run.prompt_id)}</div>
             </div>
             <div class="sub">${escapeHtml(run.submitted_at || "")}</div>
+            <div class="queue-actions">
+              ${state.comfyuiBrowserUrl ? `<a class="ghost link-button" target="_blank" rel="noreferrer" href="${escapeHtml(comfyuiRunUrl(run.prompt_id))}">Open ComfyUI</a>` : ""}
+            </div>
           </div>
         `).join("");
+      }
+
+      function comfyuiRunUrl(promptId) {
+        const base = state.comfyuiBrowserUrl || "";
+        if (!base) return "";
+        try {
+          const url = new URL(base, window.location.origin);
+          url.searchParams.set("prompt_id", promptId);
+          return url.toString();
+        } catch (_error) {
+          return base;
+        }
       }
 
       async function renderCompletedRuns(runs) {
@@ -1834,16 +2145,34 @@
       referenceImageInput.addEventListener("change", async () => {
         const file = referenceImageInput.files && referenceImageInput.files[0];
         if (!file) return;
-        try {
-          submitStatus.textContent = "Uploading reference image...";
-          await uploadReferenceImage(file);
-        } catch (error) {
-          submitStatus.textContent = error.message;
+        await withButtonBusy(fetchReferenceImageBtn, "Uploading...", async () => {
+          try {
+            submitStatus.textContent = "Uploading reference image...";
+            await uploadReferenceImage(file);
+          } catch (error) {
+            submitStatus.textContent = error.message;
+          }
+        });
+      });
+      fetchReferenceImageBtn.addEventListener("click", async () => {
+        const url = referenceImageUrlInput.value.trim();
+        if (!url) {
+          submitStatus.textContent = "Paste a public Instagram post link or direct image URL first.";
+          return;
         }
+        await withButtonBusy(fetchReferenceImageBtn, "Fetching...", async () => {
+          try {
+            submitStatus.textContent = "Fetching reference image from link...";
+            await uploadReferenceImageFromUrl(url);
+          } catch (error) {
+            submitStatus.textContent = error.message;
+          }
+        });
       });
       clearReferenceImageBtn.addEventListener("click", () => {
         state.referenceImageFilename = "";
         referenceImageInput.value = "";
+        referenceImageUrlInput.value = "";
         updateReferenceImageUi();
         submitStatus.textContent = "Cleared reference image.";
       });
@@ -1882,6 +2211,15 @@
 
       document.querySelectorAll(".preset-chip").forEach((chip) => {
         chip.addEventListener("click", () => appendQuickFill(chip.getAttribute("data-fill")));
+      });
+
+      document.querySelectorAll(".section-fill").forEach((button) => {
+        button.addEventListener("click", () => {
+          fillPromptSection(
+            button.getAttribute("data-section"),
+            button.getAttribute("data-value"),
+          );
+        });
       });
 
       async function init() {
