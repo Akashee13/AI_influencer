@@ -3,163 +3,318 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ComfyUI Control Panel</title>
+    <title>ComfyUI Studio</title>
     <style>
       :root {
-        --bg: #f2efe8;
-        --panel: rgba(255, 252, 247, 0.88);
-        --panel-strong: #fffaf1;
-        --ink: #1e1a16;
-        --muted: #6d6256;
-        --line: rgba(56, 43, 31, 0.12);
-        --accent: #a54f2d;
-        --accent-soft: #f2d2be;
-        --ok: #246b45;
-        --warn: #8e5d15;
-        --chip: #efe4d4;
-        --shadow: 0 16px 50px rgba(60, 42, 20, 0.12);
+        --bg: #07090d;
+        --bg-2: #0d1118;
+        --panel: rgba(15, 20, 30, 0.84);
+        --panel-2: rgba(11, 15, 22, 0.92);
+        --card: rgba(20, 26, 38, 0.92);
+        --line: rgba(255, 255, 255, 0.08);
+        --line-2: rgba(255, 255, 255, 0.14);
+        --ink: #f6f7fb;
+        --muted: #9ca7ba;
+        --accent: #ff6a3d;
+        --accent-2: #71ffc1;
+        --accent-3: #79a8ff;
+        --accent-soft: rgba(255, 106, 61, 0.16);
+        --shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+        --radius-xl: 28px;
+        --radius-lg: 22px;
+        --radius-md: 16px;
+        --radius-sm: 12px;
       }
 
-      * {
-        box-sizing: border-box;
-      }
+      * { box-sizing: border-box; }
 
-      body {
+      html, body {
         margin: 0;
-        color: var(--ink);
+        min-height: 100%;
         background:
-          radial-gradient(circle at top left, rgba(165, 79, 45, 0.18), transparent 28%),
-          radial-gradient(circle at top right, rgba(36, 107, 69, 0.14), transparent 24%),
-          linear-gradient(180deg, #f8f3eb 0%, #f2efe8 42%, #ebe3d7 100%);
-        font-family: Georgia, "Times New Roman", serif;
+          radial-gradient(circle at 0% 0%, rgba(121, 168, 255, 0.18), transparent 24%),
+          radial-gradient(circle at 100% 0%, rgba(113, 255, 193, 0.16), transparent 22%),
+          radial-gradient(circle at 50% 100%, rgba(255, 106, 61, 0.14), transparent 28%),
+          linear-gradient(180deg, #090b10 0%, #0b1018 42%, #06080d 100%);
+        color: var(--ink);
+        font-family: "Inter", "Segoe UI", system-ui, sans-serif;
       }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        background-size: 30px 30px;
+        pointer-events: none;
+        mask-image: linear-gradient(180deg, rgba(0,0,0,0.55), transparent 80%);
+      }
+
+      a { color: inherit; }
 
       .shell {
-        max-width: 1400px;
+        width: min(1600px, calc(100vw - 24px));
         margin: 0 auto;
-        padding: 28px 20px 44px;
+        padding: 18px 0 28px;
       }
 
-      .hero {
-        display: grid;
-        gap: 12px;
-        margin-bottom: 24px;
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 18px;
+        margin-bottom: 18px;
+        padding: 14px 18px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(8, 11, 17, 0.72);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(16px);
       }
 
-      .eyebrow {
-        font-size: 12px;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: var(--accent);
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
       }
 
-      h1 {
+      .brand-mark {
+        width: 40px;
+        height: 40px;
+        border-radius: 14px;
+        background:
+          linear-gradient(145deg, rgba(255, 106, 61, 0.9), rgba(121, 168, 255, 0.9));
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.22);
+      }
+
+      .brand h1 {
         margin: 0;
-        font-size: clamp(34px, 5vw, 64px);
-        line-height: 0.95;
+        font-size: 18px;
+        font-weight: 650;
+        letter-spacing: 0.02em;
+      }
+
+      .brand p {
+        margin: 2px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .status-cluster {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: flex-end;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .status-pill strong {
+        color: var(--ink);
         font-weight: 600;
       }
 
-      .hero p {
-        max-width: 760px;
-        margin: 0;
-        color: var(--muted);
-        font-size: 17px;
-        line-height: 1.6;
+      .layout {
+        display: grid;
+        grid-template-columns: 340px minmax(0, 1fr) 360px;
+        gap: 18px;
+        align-items: start;
       }
 
-      .grid {
+      .stack {
         display: grid;
         gap: 18px;
       }
 
-      .grid.main {
-        grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
-        align-items: start;
+      .panel {
+        position: relative;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-xl);
+        background: linear-gradient(180deg, rgba(20, 26, 38, 0.94), rgba(10, 14, 21, 0.92));
+        box-shadow: var(--shadow);
+        overflow: hidden;
       }
 
-      .panel {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 24px;
-        box-shadow: var(--shadow);
-        backdrop-filter: blur(12px);
+      .panel::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(180deg, rgba(255,255,255,0.045), transparent 28%);
       }
 
       .panel-inner {
+        position: relative;
+        z-index: 1;
         padding: 20px;
       }
 
-      .panel h2 {
-        margin: 0 0 14px;
-        font-size: 24px;
-        font-weight: 600;
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--accent-2);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        font-size: 11px;
+        margin-bottom: 10px;
+      }
+
+      .eyebrow::before {
+        content: "";
+        width: 26px;
+        height: 1px;
+        background: currentColor;
+      }
+
+      .hero-copy h2 {
+        margin: 0;
+        font-size: clamp(34px, 4vw, 60px);
+        line-height: 0.92;
+        letter-spacing: -0.04em;
+      }
+
+      .hero-copy p {
+        margin: 12px 0 0;
+        max-width: 720px;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.7;
+      }
+
+      .hero-metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 22px;
+      }
+
+      .metric {
+        padding: 14px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,0.03);
+      }
+
+      .metric-label {
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+
+      .metric-value {
+        margin-top: 6px;
+        font-size: 26px;
+        font-weight: 650;
+      }
+
+      .sidebar-card h3,
+      .studio-panel h3,
+      .section-title {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 620;
       }
 
       .subcopy {
-        margin: 0 0 16px;
+        margin: 8px 0 0;
         color: var(--muted);
-        font-size: 14px;
-        line-height: 1.55;
+        font-size: 13px;
+        line-height: 1.6;
       }
 
       .field {
         display: grid;
-        gap: 7px;
-        margin-bottom: 14px;
+        gap: 8px;
+        margin-top: 14px;
       }
 
       label {
-        font-size: 13px;
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
         color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
       }
 
       input,
       textarea,
       select {
         width: 100%;
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        padding: 12px 14px;
-        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid var(--line-2);
+        border-radius: 16px;
+        padding: 13px 14px;
+        background: rgba(255,255,255,0.04);
         color: var(--ink);
         font: inherit;
+        outline: none;
+      }
+
+      input:focus,
+      textarea:focus,
+      select:focus {
+        border-color: rgba(121, 168, 255, 0.64);
+        box-shadow: 0 0 0 4px rgba(121, 168, 255, 0.12);
       }
 
       textarea {
-        min-height: 110px;
+        min-height: 138px;
         resize: vertical;
       }
 
-      .row {
+      .row-2,
+      .row-3 {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 12px;
       }
 
-      .actions {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
+      .row-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .row-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+      .remember,
+      .toggle {
+        display: inline-flex;
         align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 14px;
+      }
+
+      .actions,
+      .toolbar,
+      .pager {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-top: 16px;
       }
 
       button {
         border: 0;
         border-radius: 999px;
         padding: 12px 18px;
-        background: var(--accent);
-        color: #fff8f2;
+        background: linear-gradient(135deg, var(--accent), #ff8758);
+        color: white;
         font: inherit;
+        font-weight: 600;
+        letter-spacing: 0.01em;
         cursor: pointer;
-        transition: transform 140ms ease, opacity 140ms ease;
-      }
-
-      button.secondary {
-        background: #e6d6c3;
-        color: var(--ink);
+        transition: transform 140ms ease, opacity 140ms ease, box-shadow 140ms ease;
+        box-shadow: 0 10px 30px rgba(255, 106, 61, 0.22);
       }
 
       button:hover {
@@ -172,316 +327,761 @@
         transform: none;
       }
 
+      button.secondary {
+        background: rgba(255,255,255,0.06);
+        box-shadow: none;
+      }
+
+      button.ghost {
+        background: transparent;
+        box-shadow: none;
+        border: 1px solid var(--line-2);
+      }
+
       .status-line {
+        min-height: 22px;
         margin-top: 12px;
-        min-height: 24px;
         color: var(--muted);
+        font-size: 13px;
+      }
+
+      .mode-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .mode-card {
+        padding: 14px;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,0.035);
+        cursor: pointer;
+        transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+      }
+
+      .mode-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(255,255,255,0.16);
+      }
+
+      .mode-card strong {
+        display: block;
         font-size: 14px;
       }
 
-      .pillbar {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-bottom: 10px;
+      .mode-card span {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
       }
 
-      .pill {
-        background: var(--chip);
-        border-radius: 999px;
-        padding: 8px 12px;
-        font-size: 13px;
-        color: var(--ink);
-      }
-
-      .sections {
+      .composer {
         display: grid;
-        gap: 18px;
+        gap: 14px;
       }
 
-      .section-header {
+      .composer-shell {
+        border-radius: 24px;
+        border: 1px solid var(--line);
+        background:
+          linear-gradient(180deg, rgba(18, 22, 31, 0.95), rgba(8, 11, 16, 0.96));
+        overflow: hidden;
+      }
+
+      .composer-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .composer-top h3 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .composer-top p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .composer-body {
+        padding: 18px;
+      }
+
+      .prompt-shell {
+        position: relative;
+        border: 1px solid var(--line-2);
+        border-radius: 24px;
+        background:
+          radial-gradient(circle at top right, rgba(121, 168, 255, 0.14), transparent 26%),
+          rgba(255,255,255,0.03);
+        overflow: hidden;
+      }
+
+      .prompt-shell textarea {
+        border: 0;
+        border-radius: 0;
+        min-height: 180px;
+        background: transparent;
+        padding: 20px;
+        font-size: 16px;
+        line-height: 1.7;
+      }
+
+      .prompt-footer {
         display: flex;
         justify-content: space-between;
         gap: 12px;
         align-items: center;
-        margin-bottom: 12px;
+        padding: 14px 18px 18px;
       }
 
-      .section-header h3 {
-        margin: 0;
-        font-size: 22px;
-      }
-
-      .section-header p {
-        margin: 0;
-        color: var(--muted);
-        font-size: 13px;
-      }
-
-      .table-wrap {
-        overflow: auto;
-        border-radius: 18px;
-        border: 1px solid var(--line);
-        background: rgba(255, 255, 255, 0.62);
-      }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        min-width: 760px;
-      }
-
-      th,
-      td {
-        text-align: left;
-        padding: 12px 14px;
-        border-bottom: 1px solid var(--line);
-        vertical-align: top;
-        font-size: 14px;
-      }
-
-      th {
-        font-size: 12px;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: var(--muted);
-        background: rgba(255, 250, 241, 0.95);
-        position: sticky;
-        top: 0;
-      }
-
-      tr:last-child td {
-        border-bottom: 0;
-      }
-
-      .code {
-        font-family: "SFMono-Regular", Menlo, Consolas, monospace;
-        font-size: 12px;
-        word-break: break-all;
-      }
-
-      .state {
-        display: inline-flex;
-        align-items: center;
-        padding: 6px 10px;
-        border-radius: 999px;
-        font-size: 12px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        background: var(--chip);
-      }
-
-      .state.running {
-        background: #e8f2e3;
-        color: var(--ok);
-      }
-
-      .state.pending,
-      .state.submitted {
-        background: #f6ead3;
-        color: var(--warn);
-      }
-
-      .downloads {
+      .token-row {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
       }
 
-      .downloads a {
-        display: inline-flex;
-        align-items: center;
-        padding: 8px 10px;
-        border-radius: 12px;
-        background: #efe4d4;
+      .chip {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255,255,255,0.04);
+        color: var(--muted);
+        font-size: 12px;
+        padding: 9px 12px;
+      }
+
+      .chip strong {
         color: var(--ink);
-        text-decoration: none;
+      }
+
+      .preset-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .preset {
+        padding: 10px 12px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,0.04);
+        color: var(--ink);
+        cursor: pointer;
+      }
+
+      .preset span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 4px;
+      }
+
+      .section-panel {
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        background: rgba(255,255,255,0.02);
+        overflow: hidden;
+      }
+
+      .section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 16px;
+        padding: 18px 18px 0;
+      }
+
+      .section-head p {
+        margin: 6px 0 0;
+        color: var(--muted);
         font-size: 13px;
       }
 
-      .empty {
+      .queue-list,
+      .run-grid {
         padding: 18px;
-        color: var(--muted);
-        font-size: 14px;
       }
 
-      .toggle {
+      .queue-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .queue-item {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 12px;
+        align-items: center;
+        padding: 14px;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,0.03);
+      }
+
+      .queue-item .meta {
+        min-width: 0;
+      }
+
+      .queue-item strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .queue-item .sub {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 4px;
+      }
+
+      .state {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        background: rgba(255,255,255,0.05);
+      }
+
+      .state::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: currentColor;
+      }
+
+      .state.running { color: var(--accent-2); background: rgba(113,255,193,0.1); }
+      .state.pending, .state.submitted { color: #ffcf79; background: rgba(255, 207, 121, 0.1); }
+      .state.completed { color: var(--accent-3); background: rgba(121,168,255,0.12); }
+      .state.unknown { color: var(--muted); }
+
+      .toolbar input {
+        max-width: 320px;
+      }
+
+      .run-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .run-card {
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        background: rgba(255,255,255,0.035);
+        overflow: hidden;
+        cursor: pointer;
+        transition: transform 140ms ease, border-color 140ms ease;
+      }
+
+      .run-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(255,255,255,0.16);
+      }
+
+      .run-card.selected {
+        border-color: rgba(121, 168, 255, 0.6);
+        box-shadow: 0 0 0 1px rgba(121, 168, 255, 0.25);
+      }
+
+      .run-preview {
+        position: relative;
+        aspect-ratio: 1 / 1;
+        background:
+          radial-gradient(circle at top, rgba(255,255,255,0.08), transparent 36%),
+          #10151e;
+        overflow: hidden;
+      }
+
+      .run-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .run-preview .fallback {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .run-body {
+        padding: 14px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .run-title {
         display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: start;
+      }
+
+      .run-title strong {
+        display: block;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .run-title span {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .code {
+        font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+        font-size: 11px;
+        color: #d4d9e5;
+        word-break: break-all;
+      }
+
+      .run-actions {
+        display: flex;
+        justify-content: space-between;
         gap: 10px;
         align-items: center;
+      }
+
+      .download-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .linkish {
+        background: transparent;
+        border: 0;
+        padding: 0;
+        margin: 0;
+        color: var(--accent-2);
+        font: inherit;
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      .pager {
+        justify-content: space-between;
+        padding: 0 18px 18px;
+      }
+
+      .pager-meta {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .inspector {
+        position: sticky;
+        top: 18px;
+      }
+
+      .inspector-preview {
+        aspect-ratio: 1 / 1.18;
+        border-radius: 22px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        background:
+          radial-gradient(circle at top, rgba(121, 168, 255, 0.14), transparent 32%),
+          #0f141d;
+        margin-top: 16px;
+      }
+
+      .inspector-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .drawer-placeholder {
         color: var(--muted);
         font-size: 14px;
+        line-height: 1.7;
       }
 
-      @media (max-width: 980px) {
-        .grid.main {
-          grid-template-columns: 1fr;
+      .meta-grid {
+        display: grid;
+        grid-template-columns: 116px 1fr;
+        gap: 10px 12px;
+        margin-top: 16px;
+      }
+
+      .meta-label {
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-size: 11px;
+      }
+
+      .meta-value {
+        font-size: 13px;
+      }
+
+      .code-block {
+        margin-top: 16px;
+        padding: 14px;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,0.04);
+        max-height: 260px;
+        overflow: auto;
+      }
+
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .empty {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      @media (max-width: 1380px) {
+        .layout {
+          grid-template-columns: 320px minmax(0, 1fr);
+        }
+
+        .inspector {
+          grid-column: 1 / -1;
+          position: static;
         }
       }
 
-      @media (max-width: 640px) {
-        .row {
+      @media (max-width: 1080px) {
+        .layout {
           grid-template-columns: 1fr;
         }
 
+        .mode-grid,
+        .run-grid,
+        .hero-metrics {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 760px) {
         .shell {
-          padding-left: 14px;
-          padding-right: 14px;
+          width: min(100vw - 16px, 100%);
+          padding-top: 12px;
+        }
+
+        .topbar {
+          border-radius: 26px;
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .row-2,
+        .row-3,
+        .mode-grid,
+        .run-grid,
+        .hero-metrics {
+          grid-template-columns: 1fr;
+        }
+
+        .prompt-footer,
+        .section-head,
+        .pager,
+        .composer-top {
+          flex-direction: column;
+          align-items: stretch;
         }
       }
     </style>
   </head>
   <body>
     <div class="shell">
-      <section class="hero">
-        <div class="eyebrow">ComfyUI Gateway Dashboard</div>
-        <h1>Run, watch, and download from one place.</h1>
-        <p>
-          Submit a locked workflow, monitor active prompts, and browse completed runs without juggling curl commands.
-        </p>
-      </section>
+      <div class="topbar">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <div>
+            <h1>ComfyUI Studio</h1>
+            <p>Prompt-first operations for your locked workflow library.</p>
+          </div>
+        </div>
+        <div class="status-cluster" id="stats">
+          <div class="status-pill">Loading studio state...</div>
+        </div>
+      </div>
 
-      <div class="grid main">
-        <section class="panel">
-          <div class="panel-inner">
-            <h2>Launch Run</h2>
-            <p class="subcopy">
-              This panel talks to the gateway API directly. Your bearer token stays in your browser local storage for convenience.
-            </p>
+      <div class="layout">
+        <aside class="stack">
+          <section class="panel sidebar-card">
+            <div class="panel-inner">
+              <div class="eyebrow">Access</div>
+              <h3>Gateway Session</h3>
+              <p class="subcopy">Use session-only token storage by default, or persist it locally if this is your private machine.</p>
 
-            <div class="field">
-              <label for="token">Gateway Token</label>
-              <input id="token" type="password" placeholder="Bearer token">
-            </div>
+              <div class="field">
+                <label for="token">Gateway Token</label>
+                <input id="token" type="password" placeholder="Bearer token">
+              </div>
 
-            <div class="field">
-              <label for="workflow">Workflow</label>
-              <select id="workflow"></select>
-            </div>
+              <label class="remember">
+                <input id="rememberToken" type="checkbox">
+                Remember token on this device
+              </label>
 
-            <div class="row">
+              <div class="field">
+                <label for="workflow">Workflow</label>
+                <select id="workflow"></select>
+              </div>
+
               <div class="field">
                 <label for="filenamePrefix">Filename Prefix</label>
                 <input id="filenamePrefix" type="text" value="mumbai-yoga-ui">
               </div>
-              <div class="field">
-                <label for="seed">Seed</label>
-                <input id="seed" type="number" placeholder="Leave blank for locked seed">
-              </div>
-            </div>
 
-            <div class="row">
-              <div class="field">
-                <label for="width">Width</label>
-                <input id="width" type="number" placeholder="Optional">
-              </div>
-              <div class="field">
-                <label for="height">Height</label>
-                <input id="height" type="number" placeholder="Optional">
-              </div>
-            </div>
-
-            <div class="field">
-              <label for="positivePrompt">Positive Prompt Override</label>
-              <textarea id="positivePrompt" placeholder="Optional prompt override"></textarea>
-            </div>
-
-            <div class="field">
-              <label for="negativePrompt">Negative Prompt Override</label>
-              <textarea id="negativePrompt" placeholder="Optional negative prompt override"></textarea>
-            </div>
-
-            <div class="actions">
-              <button id="submitBtn">Submit Run</button>
-              <button id="refreshBtn" class="secondary">Refresh Data</button>
-            </div>
-
-            <div class="status-line" id="submitStatus">Ready.</div>
-          </div>
-        </section>
-
-        <div class="sections">
-          <section class="panel">
-            <div class="panel-inner">
-              <div class="section-header">
-                <div>
-                  <h3>Live Overview</h3>
-                  <p>Quick pulse on what the gateway sees right now.</p>
+              <div class="row-2">
+                <div class="field">
+                  <label for="seed">Seed</label>
+                  <input id="seed" type="number" placeholder="Optional">
                 </div>
-                <label class="toggle">
-                  <input id="autoRefresh" type="checkbox" checked>
-                  Auto refresh
-                </label>
+                <div class="field">
+                  <label for="batchSize">Batch Size</label>
+                  <input id="batchSize" type="number" placeholder="Optional">
+                </div>
               </div>
-              <div class="pillbar" id="stats"></div>
+
+              <div class="row-2">
+                <div class="field">
+                  <label for="width">Width</label>
+                  <input id="width" type="number" placeholder="Optional">
+                </div>
+                <div class="field">
+                  <label for="height">Height</label>
+                  <input id="height" type="number" placeholder="Optional">
+                </div>
+              </div>
+
+              <div class="actions">
+                <button id="submitBtn">Submit Run</button>
+                <button id="refreshBtn" class="secondary">Refresh</button>
+              </div>
+              <div class="status-line" id="submitStatus">Ready.</div>
             </div>
           </section>
 
-          <section class="panel">
+          <section class="panel sidebar-card">
             <div class="panel-inner">
-              <div class="section-header">
-                <div>
-                  <h3>Active Runs</h3>
-                  <p>Pending and running prompts from the live queue.</p>
+              <div class="eyebrow">Presets</div>
+              <h3>Quick Scene Modes</h3>
+              <p class="subcopy">Preset chips can fill the prompt canvas fast so you can iterate more like a studio tool than a backoffice form.</p>
+              <div class="mode-grid" id="presetGrid">
+                <div class="mode-card" data-preset="cafe">
+                  <strong>Cafe Candid</strong>
+                  <span>Polished lifestyle moment with soft daylight and editorial realism.</span>
+                </div>
+                <div class="mode-card" data-preset="mirror">
+                  <strong>Mirror Editorial</strong>
+                  <span>Self-shot apartment mirror frame with premium athleisure styling.</span>
+                </div>
+                <div class="mode-card" data-preset="studio">
+                  <strong>Studio Wellness</strong>
+                  <span>Clean yoga studio composition with sharp identity retention.</span>
                 </div>
               </div>
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Status</th>
-                      <th>Prompt ID</th>
-                      <th>Workflow</th>
-                      <th>Submitted</th>
-                      <th>Overrides</th>
-                    </tr>
-                  </thead>
-                  <tbody id="activeRunsBody"></tbody>
-                </table>
+            </div>
+          </section>
+        </aside>
+
+        <main class="stack">
+          <section class="panel">
+            <div class="panel-inner">
+              <div class="hero-copy">
+                <div class="eyebrow">Prompt Stage</div>
+                <h2>Shape the shot, then launch the run.</h2>
+                <p>
+                  This UI is inspired by cinematic AI creation products, but it stays grounded in your actual gateway workflow: same VM, same runs database, same downloads, just a much stronger studio experience.
+                </p>
+              </div>
+
+              <div class="hero-metrics" id="heroMetrics">
+                <div class="metric">
+                  <div class="metric-label">ComfyUI</div>
+                  <div class="metric-value">...</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Running</div>
+                  <div class="metric-value">0</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Pending</div>
+                  <div class="metric-value">0</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Library</div>
+                  <div class="metric-value">0</div>
+                </div>
               </div>
             </div>
           </section>
 
-          <section class="panel">
-            <div class="panel-inner">
-              <div class="section-header">
-                <div>
-                  <h3>Completed Runs</h3>
-                  <p>Recent finished runs with direct output downloads.</p>
+          <section class="panel studio-panel">
+            <div class="panel-inner composer">
+              <div class="composer-shell">
+                <div class="composer-top">
+                  <div>
+                    <h3>Generation Prompt</h3>
+                    <p>Write directly into the positive prompt override and keep the negative guardrails separate below.</p>
+                  </div>
+                  <label class="toggle">
+                    <input id="autoRefresh" type="checkbox" checked>
+                    Auto refresh
+                  </label>
                 </div>
-              </div>
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Status</th>
-                      <th>Prompt ID</th>
-                      <th>Completed</th>
-                      <th>Outputs</th>
-                      <th>Overrides</th>
-                    </tr>
-                  </thead>
-                  <tbody id="completedRunsBody"></tbody>
-                </table>
+                <div class="composer-body">
+                  <div class="preset-strip">
+                    <button class="chip preset-chip" data-fill="identity">Identity Anchor</button>
+                    <button class="chip preset-chip" data-fill="premium">Premium Wellness</button>
+                    <button class="chip preset-chip" data-fill="camera">Sharp Camera Realism</button>
+                  </div>
+
+                  <div class="prompt-shell" style="margin-top: 14px;">
+                    <textarea id="positivePrompt" placeholder="Type your positive prompt override here."></textarea>
+                    <div class="prompt-footer">
+                      <div class="token-row">
+                        <div class="chip"><strong>Workflow</strong> <span id="workflowChip">loading...</span></div>
+                        <div class="chip"><strong>Prefix</strong> <span id="prefixChip">mumbai-yoga-ui</span></div>
+                      </div>
+                      <button id="scrollToGalleryBtn" class="ghost" type="button">Jump to Results</button>
+                    </div>
+                  </div>
+
+                  <div class="field">
+                    <label for="negativePrompt">Negative Prompt Override</label>
+                    <textarea id="negativePrompt" placeholder="Type your negative prompt override here."></textarea>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
-        </div>
+
+          <section class="panel section-panel">
+            <div class="section-head">
+              <div>
+                <div class="section-title">Live Queue</div>
+                <p>Active prompts discovered from the gateway and the current ComfyUI queue.</p>
+              </div>
+            </div>
+            <div class="queue-list" id="activeRunsBody"></div>
+          </section>
+
+          <section class="panel section-panel" id="gallerySection">
+            <div class="section-head">
+              <div>
+                <div class="section-title">Result Gallery</div>
+                <p>Search, page, inspect, and download saved outputs from completed runs.</p>
+              </div>
+            </div>
+
+            <div class="toolbar" style="padding: 0 18px;">
+              <input id="completedSearch" type="search" placeholder="Search prompt id, workflow, filename, override text">
+              <button id="searchBtn" class="secondary">Search</button>
+              <button id="clearSearchBtn" class="ghost">Clear</button>
+            </div>
+
+            <div class="run-grid" id="completedRunsBody"></div>
+
+            <div class="pager">
+              <div class="pager-meta" id="pagerMeta">Showing 0</div>
+              <div class="actions">
+                <button id="prevPageBtn" class="secondary">Previous</button>
+                <button id="nextPageBtn" class="secondary">Next</button>
+              </div>
+            </div>
+          </section>
+        </main>
+
+        <aside class="stack inspector">
+          <section class="panel">
+            <div class="panel-inner">
+              <div class="eyebrow">Inspector</div>
+              <h3>Run Detail</h3>
+              <p class="subcopy">Click a gallery card to inspect the preview, metadata, outputs, and raw run information.</p>
+              <div id="detailPane" class="drawer-placeholder" style="margin-top: 16px;">No run selected yet.</div>
+            </div>
+          </section>
+        </aside>
       </div>
     </div>
 
     <script>
+      const SESSION_KEY = "comfyuiGatewayTokenSession";
+      const LOCAL_KEY = "comfyuiGatewayToken";
+      const PAGE_SIZE = 12;
+
+      const PRESETS = {
+        cafe: {
+          prefix: "mumbai-cafe",
+          positive:
+            "ultra realistic lifestyle portrait of the same face identity as the locked Indian wellness anchor, premium Bangalore cafe atmosphere, warm natural daylight, polished athleisure styling, calm confidence, realistic skin texture, crisp eyes, believable smartphone-camera realism",
+        },
+        mirror: {
+          prefix: "mumbai-mirror",
+          positive:
+            "ultra realistic upscale apartment mirror portrait of the same face identity as the locked Indian wellness anchor, editorial athleisure look, subtle luxury, realistic phone capture, sharp focus, natural reflections, premium creator energy",
+        },
+        studio: {
+          prefix: "mumbai-studio",
+          positive:
+            "ultra realistic yoga studio portrait of the same face identity as the locked Indian wellness anchor, composed posture, premium wellness brand aesthetic, authentic Indian features, clean daylight, realistic fabric texture, sharp facial detail",
+        },
+      };
+
+      const QUICK_FILL = {
+        identity:
+          "same face identity as the locked Indian wellness anchor, distinctly Indian facial features, fair-light wheatish Indian skin with warm golden undertones, deep black-brown Indian eyes, natural Indian eyebrows, believable premium creator presence",
+        premium:
+          "premium Indian wellness creator look, polished athleisure styling, balanced hourglass body, elegant natural makeup, modern Bangalore lifestyle energy",
+        camera:
+          "ultra realistic photo, realistic skin texture, sharp focus, crisp eyes, believable lighting, smartphone editorial realism, no plastic skin",
+      };
+
       const state = {
-        token: localStorage.getItem("comfyuiGatewayToken") || "",
+        token: localStorage.getItem(LOCAL_KEY) || sessionStorage.getItem(SESSION_KEY) || "",
+        rememberToken: Boolean(localStorage.getItem(LOCAL_KEY)),
         autoRefreshTimer: null,
+        completedOffset: 0,
+        completedTotal: 0,
+        completedQuery: "",
+        selectedPromptId: "",
+        previewUrls: new Map(),
+        detailRun: null,
+        currentWorkflow: "",
       };
 
       const tokenInput = document.getElementById("token");
+      const rememberTokenCheckbox = document.getElementById("rememberToken");
       const workflowSelect = document.getElementById("workflow");
       const filenamePrefixInput = document.getElementById("filenamePrefix");
       const seedInput = document.getElementById("seed");
       const widthInput = document.getElementById("width");
       const heightInput = document.getElementById("height");
+      const batchSizeInput = document.getElementById("batchSize");
       const positivePromptInput = document.getElementById("positivePrompt");
       const negativePromptInput = document.getElementById("negativePrompt");
       const submitBtn = document.getElementById("submitBtn");
@@ -491,50 +1091,69 @@
       const activeRunsBody = document.getElementById("activeRunsBody");
       const completedRunsBody = document.getElementById("completedRunsBody");
       const autoRefreshCheckbox = document.getElementById("autoRefresh");
+      const completedSearchInput = document.getElementById("completedSearch");
+      const searchBtn = document.getElementById("searchBtn");
+      const clearSearchBtn = document.getElementById("clearSearchBtn");
+      const prevPageBtn = document.getElementById("prevPageBtn");
+      const nextPageBtn = document.getElementById("nextPageBtn");
+      const pagerMeta = document.getElementById("pagerMeta");
+      const detailPane = document.getElementById("detailPane");
+      const heroMetrics = document.getElementById("heroMetrics");
+      const workflowChip = document.getElementById("workflowChip");
+      const prefixChip = document.getElementById("prefixChip");
+      const scrollToGalleryBtn = document.getElementById("scrollToGalleryBtn");
 
       tokenInput.value = state.token;
+      rememberTokenCheckbox.checked = state.rememberToken;
 
-      tokenInput.addEventListener("input", () => {
-        state.token = tokenInput.value.trim();
-        localStorage.setItem("comfyuiGatewayToken", state.token);
-      });
-
-      autoRefreshCheckbox.addEventListener("change", () => {
-        updateAutoRefresh();
-      });
-
-      submitBtn.addEventListener("click", submitRun);
-      refreshBtn.addEventListener("click", refreshAll);
+      function persistToken() {
+        if (state.rememberToken) {
+          localStorage.setItem(LOCAL_KEY, state.token);
+          sessionStorage.removeItem(SESSION_KEY);
+        } else {
+          localStorage.removeItem(LOCAL_KEY);
+          if (state.token) {
+            sessionStorage.setItem(SESSION_KEY, state.token);
+          } else {
+            sessionStorage.removeItem(SESSION_KEY);
+          }
+        }
+      }
 
       function authHeaders(includeJson = false) {
         const headers = {};
-        if (includeJson) {
-          headers["Content-Type"] = "application/json";
-        }
-        if (state.token) {
-          headers["Authorization"] = `Bearer ${state.token}`;
-        }
+        if (includeJson) headers["Content-Type"] = "application/json";
+        if (state.token) headers["Authorization"] = `Bearer ${state.token}`;
         return headers;
       }
 
       async function fetchJson(path, options = {}) {
         const response = await fetch(path, options);
         const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || `Request failed with ${response.status}`);
-        }
+        if (!response.ok) throw new Error(data.error || `Request failed with ${response.status}`);
         return data;
       }
 
-      function compactJson(value) {
-        if (!value || typeof value !== "object") {
-          return "None";
+      async function fetchBlob(path) {
+        const response = await fetch(path, { headers: authHeaders() });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || `Request failed with ${response.status}`);
         }
+        return response.blob();
+      }
+
+      function compactJson(value) {
+        if (!value || typeof value !== "object" || !Object.keys(value).length) return "None";
         return JSON.stringify(value);
       }
 
-      function renderEmptyRow(target, message, colSpan) {
-        target.innerHTML = `<tr><td class="empty" colspan="${colSpan}">${message}</td></tr>`;
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
       }
 
       function statusBadge(status) {
@@ -542,72 +1161,71 @@
         return `<span class="state ${safe}">${safe}</span>`;
       }
 
-      function renderDownloads(outputs) {
-        if (!outputs || !outputs.length) {
-          return '<span class="empty">No saved outputs</span>';
-        }
+      async function getPreviewUrl(downloadUrl) {
+        if (state.previewUrls.has(downloadUrl)) return state.previewUrls.get(downloadUrl);
+        const blob = await fetchBlob(downloadUrl);
+        const url = URL.createObjectURL(blob);
+        state.previewUrls.set(downloadUrl, url);
+        return url;
+      }
 
-        return `<div class="downloads">${outputs
-          .map((output) => {
-            const name = output.filename || output.relative_path || "download";
-            return `<a href="${output.download_url}" data-download="${output.download_url}">${name}</a>`;
-          })
-          .join("")}</div>`;
+      function updateComposerChips() {
+        prefixChip.textContent = filenamePrefixInput.value.trim() || "none";
+        workflowChip.textContent = workflowSelect.value || "loading...";
       }
 
       async function loadWorkflows() {
         try {
-          const data = await fetchJson("/workflows", {
-            headers: authHeaders(),
-          });
-          const workflows = data.workflows || [];
-          workflowSelect.innerHTML = workflows
-            .map((workflow) => `<option value="${workflow}">${workflow}</option>`)
+          const data = await fetchJson("/workflows", { headers: authHeaders() });
+          workflowSelect.innerHTML = (data.workflows || [])
+            .map((workflow) => `<option value="${escapeHtml(workflow)}">${escapeHtml(workflow)}</option>`)
             .join("");
+          state.currentWorkflow = workflowSelect.value || "";
+          updateComposerChips();
         } catch (error) {
           workflowSelect.innerHTML = `<option value="">Failed to load workflows</option>`;
           submitStatus.textContent = error.message;
         }
       }
 
+      function applyPreset(name) {
+        const preset = PRESETS[name];
+        if (!preset) return;
+        positivePromptInput.value = preset.positive;
+        filenamePrefixInput.value = preset.prefix;
+        updateComposerChips();
+      }
+
+      function appendQuickFill(name) {
+        const snippet = QUICK_FILL[name];
+        if (!snippet) return;
+        const existing = positivePromptInput.value.trim();
+        positivePromptInput.value = existing ? `${existing}, ${snippet}` : snippet;
+      }
+
       async function submitRun() {
         submitBtn.disabled = true;
         submitStatus.textContent = "Submitting run...";
-
         try {
           const overrides = {};
-          if (filenamePrefixInput.value.trim()) {
-            overrides.filename_prefix = filenamePrefixInput.value.trim();
-          }
-          if (seedInput.value.trim()) {
-            overrides.seed = Number(seedInput.value.trim());
-          }
-          if (widthInput.value.trim()) {
-            overrides.width = Number(widthInput.value.trim());
-          }
-          if (heightInput.value.trim()) {
-            overrides.height = Number(heightInput.value.trim());
-          }
-          if (positivePromptInput.value.trim()) {
-            overrides.positive_prompt = positivePromptInput.value.trim();
-          }
-          if (negativePromptInput.value.trim()) {
-            overrides.negative_prompt = negativePromptInput.value.trim();
-          }
-
-          const payload = {
-            workflow: workflowSelect.value,
-            overrides,
-          };
+          if (filenamePrefixInput.value.trim()) overrides.filename_prefix = filenamePrefixInput.value.trim();
+          if (seedInput.value.trim()) overrides.seed = Number(seedInput.value.trim());
+          if (widthInput.value.trim()) overrides.width = Number(widthInput.value.trim());
+          if (heightInput.value.trim()) overrides.height = Number(heightInput.value.trim());
+          if (batchSizeInput.value.trim()) overrides.batch_size = Number(batchSizeInput.value.trim());
+          if (positivePromptInput.value.trim()) overrides.positive_prompt = positivePromptInput.value.trim();
+          if (negativePromptInput.value.trim()) overrides.negative_prompt = negativePromptInput.value.trim();
 
           const data = await fetchJson("/generate", {
             method: "POST",
             headers: authHeaders(true),
-            body: JSON.stringify(payload),
+            body: JSON.stringify({ workflow: workflowSelect.value, overrides }),
           });
 
           submitStatus.textContent = `Submitted ${data.prompt_id}.`;
+          state.selectedPromptId = data.prompt_id;
           await refreshAll();
+          await loadRunDetail(data.prompt_id);
         } catch (error) {
           submitStatus.textContent = error.message;
         } finally {
@@ -617,95 +1235,171 @@
 
       async function refreshAll() {
         try {
-          const [health, active, completed] = await Promise.all([
+          const [health, active] = await Promise.all([
             fetchJson("/healthz"),
-            fetchJson("/runs/active", { headers: authHeaders() }),
-            fetchJson("/runs/completed", { headers: authHeaders() }),
+            fetchJson("/runs/active?limit=100", { headers: authHeaders() }),
           ]);
-
-          renderStats(health, active, completed);
+          renderStats(health, active);
           renderActiveRuns(active.runs || []);
-          renderCompletedRuns(completed.runs || []);
+          await refreshCompletedRuns();
         } catch (error) {
           submitStatus.textContent = error.message;
         }
       }
 
-      function renderStats(health, active, completed) {
+      async function refreshCompletedRuns() {
+        try {
+          const params = new URLSearchParams({
+            limit: String(PAGE_SIZE),
+            offset: String(state.completedOffset),
+          });
+          if (state.completedQuery) params.set("q", state.completedQuery);
+          const completed = await fetchJson(`/runs/completed?${params.toString()}`, { headers: authHeaders() });
+          state.completedTotal = completed.total || 0;
+          await renderCompletedRuns(completed.runs || []);
+          renderPager();
+        } catch (error) {
+          submitStatus.textContent = error.message;
+        }
+      }
+
+      function renderStats(health, active) {
         const queue = health.queue || {};
         const running = (queue.queue_running || []).length;
         const pending = (queue.queue_pending || []).length;
-        const completedCount = (completed.runs || []).length;
         const activeCount = (active.runs || []).length;
 
         stats.innerHTML = [
-          `<div class="pill">ComfyUI: ${health.comfyui || "unknown"}</div>`,
-          `<div class="pill">Running: ${running}</div>`,
-          `<div class="pill">Pending: ${pending}</div>`,
-          `<div class="pill">Active tracked: ${activeCount}</div>`,
-          `<div class="pill">Completed tracked: ${completedCount}</div>`,
+          `<div class="status-pill"><strong>${escapeHtml(health.comfyui || "unknown")}</strong> gateway link</div>`,
+          `<div class="status-pill"><strong>${running}</strong> running</div>`,
+          `<div class="status-pill"><strong>${pending}</strong> pending</div>`,
+          `<div class="status-pill"><strong>${state.completedTotal}</strong> completed</div>`,
+          `<div class="status-pill"><strong>${activeCount}</strong> active tracked</div>`,
         ].join("");
+
+        heroMetrics.innerHTML = `
+          <div class="metric">
+            <div class="metric-label">ComfyUI</div>
+            <div class="metric-value">${escapeHtml(health.comfyui || "unknown")}</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Running</div>
+            <div class="metric-value">${running}</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Pending</div>
+            <div class="metric-value">${pending}</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Library</div>
+            <div class="metric-value">${state.completedTotal}</div>
+          </div>
+        `;
       }
 
       function renderActiveRuns(runs) {
         if (!runs.length) {
-          renderEmptyRow(activeRunsBody, "No active runs right now.", 5);
+          activeRunsBody.innerHTML = `<div class="empty">No active runs right now.</div>`;
           return;
         }
 
-        activeRunsBody.innerHTML = runs
-          .map(
-            (run) => `
-              <tr>
-                <td>${statusBadge(run.status)}</td>
-                <td class="code">${run.prompt_id}</td>
-                <td>${run.workflow_name}</td>
-                <td>${run.submitted_at || ""}</td>
-                <td class="code">${compactJson(run.overrides)}</td>
-              </tr>
-            `
-          )
-          .join("");
+        activeRunsBody.innerHTML = runs.map((run) => `
+          <div class="queue-item">
+            <div>${statusBadge(run.status)}</div>
+            <div class="meta">
+              <strong>${escapeHtml(run.workflow_name || "workflow")}</strong>
+              <div class="sub code">${escapeHtml(run.prompt_id)}</div>
+            </div>
+            <div class="sub">${escapeHtml(run.submitted_at || "")}</div>
+          </div>
+        `).join("");
       }
 
-      function renderCompletedRuns(runs) {
+      async function renderCompletedRuns(runs) {
         if (!runs.length) {
-          renderEmptyRow(completedRunsBody, "No completed runs recorded yet.", 5);
+          completedRunsBody.innerHTML = `<div class="empty">No completed runs match this view.</div>`;
           return;
         }
 
-        completedRunsBody.innerHTML = runs
-          .map(
-            (run) => `
-              <tr>
-                <td>${statusBadge(run.status)}</td>
-                <td class="code">${run.prompt_id}</td>
-                <td>${run.completed_at || ""}</td>
-                <td>${renderDownloads(run.outputs)}</td>
-                <td class="code">${compactJson(run.overrides)}</td>
-              </tr>
-            `
-          )
-          .join("");
+        completedRunsBody.innerHTML = runs.map((run) => {
+          const firstOutput = run.outputs && run.outputs.length ? run.outputs[0] : null;
+          const selected = state.selectedPromptId === run.prompt_id ? "selected" : "";
+          return `
+            <article class="run-card ${selected}" data-detail="${run.prompt_id}">
+              <div class="run-preview" data-preview="${firstOutput ? firstOutput.download_url : ""}">
+                <div class="fallback">Loading preview...</div>
+              </div>
+              <div class="run-body">
+                <div class="run-title">
+                  <div>
+                    <strong>${escapeHtml(run.workflow_name || "workflow")}</strong>
+                    <span>${escapeHtml(run.completed_at || "")}</span>
+                  </div>
+                  ${statusBadge(run.status)}
+                </div>
+                <div class="code">${escapeHtml(run.prompt_id)}</div>
+                <div class="download-links">
+                  ${(run.outputs || []).slice(0, 3).map((output, index) =>
+                    `<button class="linkish" type="button" data-download="${output.download_url}" data-stop="1">${escapeHtml(output.filename || `output-${index + 1}`)}</button>`
+                  ).join("") || '<span class="empty">No outputs</span>'}
+                </div>
+              </div>
+            </article>
+          `;
+        }).join("");
 
-        document.querySelectorAll("[data-download]").forEach((link) => {
-          link.addEventListener("click", (event) => {
-            event.preventDefault();
-            downloadWithAuth(link.getAttribute("data-download"));
+        wireGalleryActions();
+        await hydrateVisiblePreviews();
+      }
+
+      function wireGalleryActions() {
+        document.querySelectorAll("[data-detail]").forEach((card) => {
+          card.addEventListener("click", async (event) => {
+            if (event.target.closest("[data-stop='1']")) return;
+            await loadRunDetail(card.getAttribute("data-detail"));
+          });
+        });
+
+        document.querySelectorAll("[data-download]").forEach((button) => {
+          button.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            await downloadWithAuth(button.getAttribute("data-download"));
           });
         });
       }
 
+      async function hydrateVisiblePreviews() {
+        const previews = [...document.querySelectorAll("[data-preview]")];
+        for (const preview of previews) {
+          const downloadUrl = preview.getAttribute("data-preview");
+          if (!downloadUrl) {
+            preview.innerHTML = `<div class="fallback">No preview</div>`;
+            continue;
+          }
+          try {
+            const src = await getPreviewUrl(downloadUrl);
+            preview.innerHTML = `<img src="${src}" alt="Run preview">`;
+          } catch (_error) {
+            preview.innerHTML = `<div class="fallback">Preview unavailable</div>`;
+          }
+        }
+      }
+
+      function renderPager() {
+        const start = state.completedTotal ? state.completedOffset + 1 : 0;
+        const end = Math.min(state.completedOffset + PAGE_SIZE, state.completedTotal);
+        pagerMeta.textContent = `Showing ${start}-${end} of ${state.completedTotal}`;
+        prevPageBtn.disabled = state.completedOffset === 0;
+        nextPageBtn.disabled = state.completedOffset + PAGE_SIZE >= state.completedTotal;
+      }
+
       async function downloadWithAuth(path) {
         try {
-          const response = await fetch(path, {
-            headers: authHeaders(),
-          });
+          const response = await fetch(path, { headers: authHeaders() });
           if (!response.ok) {
-            const data = await response.json();
+            const data = await response.json().catch(() => ({}));
             throw new Error(data.error || `Download failed with ${response.status}`);
           }
-
           const blob = await response.blob();
           const disposition = response.headers.get("Content-Disposition") || "";
           const match = disposition.match(/filename=([^;]+)/);
@@ -723,19 +1417,129 @@
         }
       }
 
+      async function loadRunDetail(promptId) {
+        try {
+          const data = await fetchJson(`/runs/${promptId}`, { headers: authHeaders() });
+          state.selectedPromptId = promptId;
+          state.detailRun = data.run;
+          await renderDetail();
+          await refreshCompletedRuns();
+        } catch (error) {
+          submitStatus.textContent = error.message;
+        }
+      }
+
+      async function renderDetail() {
+        if (!state.detailRun) {
+          detailPane.innerHTML = `No run selected yet.`;
+          return;
+        }
+
+        const run = state.detailRun;
+        const firstOutput = run.outputs && run.outputs.length ? run.outputs[0] : null;
+        let previewHtml = `<div class="drawer-placeholder">No preview available.</div>`;
+
+        if (firstOutput) {
+          try {
+            const src = await getPreviewUrl(firstOutput.download_url);
+            previewHtml = `<div class="inspector-preview"><img src="${src}" alt="Run preview"></div>`;
+          } catch (_error) {
+            previewHtml = `<div class="drawer-placeholder">Preview fetch failed.</div>`;
+          }
+        }
+
+        detailPane.innerHTML = `
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
+            ${statusBadge(run.status)}
+            <button class="secondary" id="detailDownloadFirst" ${firstOutput ? "" : "disabled"}>Download First Output</button>
+          </div>
+          ${previewHtml}
+          <div class="meta-grid">
+            <div class="meta-label">Prompt ID</div>
+            <div class="meta-value code">${escapeHtml(run.prompt_id)}</div>
+            <div class="meta-label">Workflow</div>
+            <div class="meta-value">${escapeHtml(run.workflow_name || "")}</div>
+            <div class="meta-label">Client</div>
+            <div class="meta-value code">${escapeHtml(run.client_id || "")}</div>
+            <div class="meta-label">Submitted</div>
+            <div class="meta-value">${escapeHtml(run.submitted_at || "")}</div>
+            <div class="meta-label">Completed</div>
+            <div class="meta-value">${escapeHtml(run.completed_at || "")}</div>
+            <div class="meta-label">Overrides</div>
+            <div class="meta-value code">${escapeHtml(compactJson(run.overrides))}</div>
+          </div>
+          <div class="code-block"><pre>${escapeHtml(JSON.stringify(run.outputs || [], null, 2))}</pre></div>
+        `;
+
+        const button = document.getElementById("detailDownloadFirst");
+        if (button && firstOutput) {
+          button.addEventListener("click", async () => {
+            await downloadWithAuth(firstOutput.download_url);
+          });
+        }
+      }
+
       function updateAutoRefresh() {
         if (state.autoRefreshTimer) {
           clearInterval(state.autoRefreshTimer);
           state.autoRefreshTimer = null;
         }
-
         if (autoRefreshCheckbox.checked) {
           state.autoRefreshTimer = setInterval(refreshAll, 15000);
         }
       }
 
+      tokenInput.addEventListener("input", () => {
+        state.token = tokenInput.value.trim();
+        persistToken();
+      });
+
+      rememberTokenCheckbox.addEventListener("change", () => {
+        state.rememberToken = rememberTokenCheckbox.checked;
+        persistToken();
+      });
+
+      workflowSelect.addEventListener("change", updateComposerChips);
+      filenamePrefixInput.addEventListener("input", updateComposerChips);
+      autoRefreshCheckbox.addEventListener("change", updateAutoRefresh);
+      submitBtn.addEventListener("click", submitRun);
+      refreshBtn.addEventListener("click", refreshAll);
+      searchBtn.addEventListener("click", () => {
+        state.completedQuery = completedSearchInput.value.trim();
+        state.completedOffset = 0;
+        refreshCompletedRuns();
+      });
+      clearSearchBtn.addEventListener("click", () => {
+        completedSearchInput.value = "";
+        state.completedQuery = "";
+        state.completedOffset = 0;
+        refreshCompletedRuns();
+      });
+      prevPageBtn.addEventListener("click", () => {
+        state.completedOffset = Math.max(0, state.completedOffset - PAGE_SIZE);
+        refreshCompletedRuns();
+      });
+      nextPageBtn.addEventListener("click", () => {
+        if (state.completedOffset + PAGE_SIZE < state.completedTotal) {
+          state.completedOffset += PAGE_SIZE;
+          refreshCompletedRuns();
+        }
+      });
+      scrollToGalleryBtn.addEventListener("click", () => {
+        document.getElementById("gallerySection").scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
+      document.querySelectorAll("[data-preset]").forEach((card) => {
+        card.addEventListener("click", () => applyPreset(card.getAttribute("data-preset")));
+      });
+
+      document.querySelectorAll(".preset-chip").forEach((chip) => {
+        chip.addEventListener("click", () => appendQuickFill(chip.getAttribute("data-fill")));
+      });
+
       async function init() {
         await loadWorkflows();
+        updateComposerChips();
         await refreshAll();
         updateAutoRefresh();
       }

@@ -195,20 +195,46 @@ def row_to_run(row: sqlite3.Row) -> dict[str, Any]:
     return result
 
 
-def list_runs_by_status(statuses: list[str], limit: int = 100) -> list[dict[str, Any]]:
+def list_runs_by_status(
+    statuses: list[str],
+    *,
+    limit: int = 100,
+    offset: int = 0,
+    query: str = "",
+) -> tuple[list[dict[str, Any]], int]:
     placeholders = ", ".join("?" for _ in statuses)
+    where = [f"status IN ({placeholders})"]
+    params: list[Any] = list(statuses)
+
+    if query:
+        where.append(
+            "("
+            "prompt_id LIKE ? OR "
+            "workflow_name LIKE ? OR "
+            "overrides_json LIKE ? OR "
+            "outputs_json LIKE ?"
+            ")"
+        )
+        wildcard = f"%{query}%"
+        params.extend([wildcard, wildcard, wildcard, wildcard])
+
+    where_sql = " AND ".join(where)
     with db_connect() as conn:
+        total = conn.execute(
+            f"SELECT COUNT(*) FROM runs WHERE {where_sql}",
+            params,
+        ).fetchone()[0]
         rows = conn.execute(
             f"""
             SELECT *
             FROM runs
-            WHERE status IN ({placeholders})
+            WHERE {where_sql}
             ORDER BY submitted_at DESC
-            LIMIT ?
+            LIMIT ? OFFSET ?
             """,
-            (*statuses, limit),
+            [*params, limit, offset],
         ).fetchall()
-    return [row_to_run(row) for row in rows]
+    return [row_to_run(row) for row in rows], int(total)
 
 
 def list_nonterminal_prompt_ids() -> list[str]:
@@ -329,6 +355,23 @@ def summarize_run(run: dict[str, Any], *, include_outputs: bool = False) -> dict
     if include_outputs:
         summary["outputs"] = run.get("outputs", [])
     return summary
+
+
+def detail_run(run: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "prompt_id": run["prompt_id"],
+        "workflow_name": run["workflow_name"],
+        "client_id": run["client_id"],
+        "status": run["status"],
+        "submitted_at": run["submitted_at"],
+        "completed_at": run.get("completed_at"),
+        "error_text": run.get("error_text"),
+        "overrides": run.get("overrides"),
+        "outputs": run.get("outputs", []),
+        "history": run.get("history"),
+        "raw_request": run.get("raw_request"),
+        "raw_response": run.get("raw_response"),
+    }
 
 
 def api_get(url: str) -> Any:
@@ -605,18 +648,23 @@ def sync_nonterminal_runs() -> None:
             continue
 
 
-def active_runs_payload() -> dict[str, Any]:
+def active_runs_payload(*, limit: int = 100, offset: int = 0, query: str = "") -> dict[str, Any]:
     backfill_runs_from_queue()
     sync_nonterminal_runs()
-    runs = list_runs_by_status(["submitted", "pending", "running", "unknown"])
-    return {"ok": True, "runs": [summarize_run(run) for run in runs]}
+    runs, total = list_runs_by_status(
+        ["submitted", "pending", "running", "unknown"],
+        limit=limit,
+        offset=offset,
+        query=query,
+    )
+    return {"ok": True, "runs": [summarize_run(run) for run in runs], "total": total}
 
 
-def completed_runs_payload() -> dict[str, Any]:
+def completed_runs_payload(*, limit: int = 50, offset: int = 0, query: str = "") -> dict[str, Any]:
     backfill_runs_from_history()
     sync_nonterminal_runs()
-    runs = list_runs_by_status(["completed"])
-    return {"ok": True, "runs": [summarize_run(run, include_outputs=True) for run in runs]}
+    runs, total = list_runs_by_status(["completed"], limit=limit, offset=offset, query=query)
+    return {"ok": True, "runs": [summarize_run(run, include_outputs=True) for run in runs], "total": total}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -650,15 +698,35 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _parsed_url(self) -> parse.SplitResult:
+        return parse.urlsplit(self.path)
+
+    def _query_params(self) -> dict[str, list[str]]:
+        return parse.parse_qs(self._parsed_url().query)
+
+    def _query_int(self, name: str, default: int, minimum: int = 0, maximum: int = 500) -> int:
+        raw = self._query_params().get(name, [str(default)])[0]
+        try:
+            value = int(raw)
+        except ValueError:
+            return default
+        return max(minimum, min(maximum, value))
+
+    def _query_str(self, name: str, default: str = "") -> str:
+        return self._query_params().get(name, [default])[0].strip()
+
     def do_GET(self) -> None:  # noqa: N802
-        if self.path in ("/", "/dashboard"):
+        parsed = self._parsed_url()
+        path = parsed.path
+
+        if path in ("/", "/dashboard"):
             if not DASHBOARD_PATH.exists():
                 self._send_json(HTTPStatus.NOT_FOUND, {"error": "dashboard not found"})
                 return
             self._send_bytes(HTTPStatus.OK, DASHBOARD_PATH.read_bytes(), "text/html; charset=utf-8")
             return
 
-        if self.path == "/healthz":
+        if path == "/healthz":
             try:
                 queue = api_get(f"{COMFYUI_URL.rstrip('/')}/queue")
                 self._send_json(HTTPStatus.OK, {"ok": True, "comfyui": "reachable", "queue": queue})
@@ -669,14 +737,14 @@ class Handler(BaseHTTPRequestHandler):
         if not self._require_auth():
             return
 
-        if self.path == "/workflows":
+        if path == "/workflows":
             try:
                 self._send_json(HTTPStatus.OK, {"ok": True, "workflows": list_workflow_files()})
             except Exception as exc:
                 self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
             return
 
-        if self.path == "/queue":
+        if path == "/queue":
             try:
                 queue = api_get(f"{COMFYUI_URL.rstrip('/')}/queue")
                 self._send_json(HTTPStatus.OK, {"ok": True, "queue": queue})
@@ -684,22 +752,46 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
             return
 
-        if self.path == "/runs/active":
+        if path == "/runs/active":
             try:
-                self._send_json(HTTPStatus.OK, active_runs_payload())
+                self._send_json(
+                    HTTPStatus.OK,
+                    active_runs_payload(
+                        limit=self._query_int("limit", 100),
+                        offset=self._query_int("offset", 0),
+                        query=self._query_str("q"),
+                    ),
+                )
             except Exception as exc:
                 self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
             return
 
-        if self.path == "/runs/completed":
+        if path == "/runs/completed":
             try:
-                self._send_json(HTTPStatus.OK, completed_runs_payload())
+                self._send_json(
+                    HTTPStatus.OK,
+                    completed_runs_payload(
+                        limit=self._query_int("limit", 24),
+                        offset=self._query_int("offset", 0),
+                        query=self._query_str("q"),
+                    ),
+                )
             except Exception as exc:
                 self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
             return
 
-        if self.path.startswith("/history/"):
-            prompt_id = self.path.removeprefix("/history/").strip()
+        if path.startswith("/runs/"):
+            prompt_id = path.removeprefix("/runs/").strip()
+            if prompt_id and "/" not in prompt_id and prompt_id not in {"active", "completed"}:
+                run = get_run(prompt_id)
+                if not run:
+                    self._send_json(HTTPStatus.NOT_FOUND, {"error": "run not found"})
+                    return
+                self._send_json(HTTPStatus.OK, {"ok": True, "run": detail_run(run)})
+                return
+
+        if path.startswith("/history/"):
+            prompt_id = path.removeprefix("/history/").strip()
             if not prompt_id:
                 self._send_json(HTTPStatus.BAD_REQUEST, {"error": "missing prompt_id"})
                 return
@@ -711,8 +803,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
             return
 
-        if self.path.startswith("/status/"):
-            prompt_id = self.path.removeprefix("/status/").strip()
+        if path.startswith("/status/"):
+            prompt_id = path.removeprefix("/status/").strip()
             if not prompt_id:
                 self._send_json(HTTPStatus.BAD_REQUEST, {"error": "missing prompt_id"})
                 return
@@ -722,8 +814,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
             return
 
-        if self.path.startswith("/download/"):
-            parts = self.path.split("/")
+        if path.startswith("/download/"):
+            parts = path.split("/")
             if len(parts) != 4:
                 self._send_json(HTTPStatus.BAD_REQUEST, {"error": "invalid download path"})
                 return
