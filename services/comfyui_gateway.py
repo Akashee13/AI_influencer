@@ -402,6 +402,46 @@ def list_workflow_files() -> list[str]:
     return sorted(path.name for path in WORKFLOW_DIR.glob("*.json"))
 
 
+def workflow_defaults(path: Path) -> dict[str, Any]:
+    workflow = load_json(path)
+    nodes_by_type = {node["type"]: node for node in workflow.get("nodes", [])}
+
+    latent = nodes_by_type.get("EmptyLatentImage", {})
+    sampler = nodes_by_type.get("KSampler", {})
+    save = nodes_by_type.get("SaveImage", {})
+    positive_node, negative_node = resolve_prompt_nodes(workflow)
+
+    latent_widgets = list(latent.get("widgets_values", []))
+    sampler_widgets = list(sampler.get("widgets_values", []))
+    save_widgets = list(save.get("widgets_values", []))
+
+    positive_prompt = positive_node["widgets_values"][0] if positive_node.get("widgets_values") else ""
+    negative_prompt = negative_node["widgets_values"][0] if negative_node.get("widgets_values") else ""
+
+    return {
+        "name": path.name,
+        "defaults": {
+            "width": latent_widgets[0] if len(latent_widgets) > 0 else None,
+            "height": latent_widgets[1] if len(latent_widgets) > 1 else None,
+            "batch_size": latent_widgets[2] if len(latent_widgets) > 2 else None,
+            "seed": sampler_widgets[0] if len(sampler_widgets) > 0 else None,
+            "control_after_generate": sampler_widgets[1] if len(sampler_widgets) > 1 else None,
+            "steps": sampler_widgets[2] if len(sampler_widgets) > 2 else None,
+            "cfg": sampler_widgets[3] if len(sampler_widgets) > 3 else None,
+            "sampler": sampler_widgets[4] if len(sampler_widgets) > 4 else None,
+            "scheduler": sampler_widgets[5] if len(sampler_widgets) > 5 else None,
+            "denoise": sampler_widgets[6] if len(sampler_widgets) > 6 else None,
+            "filename_prefix": save_widgets[0] if len(save_widgets) > 0 else None,
+            "positive_prompt": positive_prompt,
+            "negative_prompt": negative_prompt,
+        },
+    }
+
+
+def list_workflow_summaries() -> list[dict[str, Any]]:
+    return [workflow_defaults(path) for path in sorted(WORKFLOW_DIR.glob("*.json"))]
+
+
 def build_link_map(workflow: dict[str, Any]) -> dict[int, tuple[int, int, int, int, str]]:
     link_map: dict[int, tuple[int, int, int, int, str]] = {}
     for raw in workflow.get("links", []):
@@ -414,9 +454,26 @@ def find_nodes_by_type(workflow: dict[str, Any], node_type: str) -> list[dict[st
     return [node for node in workflow.get("nodes", []) if node.get("type") == node_type]
 
 
+def node_map(workflow: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    return {int(node["id"]): node for node in workflow.get("nodes", [])}
+
+
 def input_ref(link_map: dict[int, tuple[int, int, int, int, str]], link_id: int) -> list[Any]:
     from_node, from_slot, *_rest = link_map[link_id]
     return [str(from_node), from_slot]
+
+
+def resolve_prompt_nodes(workflow: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    ksampler_node = find_nodes_by_type(workflow, "KSampler")[0]
+    link_map = build_link_map(workflow)
+    nodes = node_map(workflow)
+
+    pos_link = next(inp for inp in ksampler_node["inputs"] if inp["name"] == "positive")["link"]
+    neg_link = next(inp for inp in ksampler_node["inputs"] if inp["name"] == "negative")["link"]
+
+    pos_node_id = link_map[pos_link][0]
+    neg_node_id = link_map[neg_link][0]
+    return nodes[int(pos_node_id)], nodes[int(neg_node_id)]
 
 
 def ui_workflow_to_api_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
@@ -487,18 +544,15 @@ def ui_workflow_to_api_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
 
 
 def apply_overrides(workflow: dict[str, Any], overrides: dict[str, Any]) -> None:
-    prompt_nodes = find_nodes_by_type(workflow, "CLIPTextEncode")
-    if len(prompt_nodes) != 2:
-        raise WorkflowError("Expected exactly two CLIPTextEncode nodes")
-
+    positive_node, negative_node = resolve_prompt_nodes(workflow)
     latent_node = find_nodes_by_type(workflow, "EmptyLatentImage")[0]
     ksampler_node = find_nodes_by_type(workflow, "KSampler")[0]
     save_node = find_nodes_by_type(workflow, "SaveImage")[0]
 
     if "positive_prompt" in overrides:
-        prompt_nodes[0]["widgets_values"][0] = overrides["positive_prompt"]
+        positive_node["widgets_values"][0] = overrides["positive_prompt"]
     if "negative_prompt" in overrides:
-        prompt_nodes[1]["widgets_values"][0] = overrides["negative_prompt"]
+        negative_node["widgets_values"][0] = overrides["negative_prompt"]
     if "width" in overrides:
         latent_node["widgets_values"][0] = overrides["width"]
     if "height" in overrides:
@@ -739,7 +793,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/workflows":
             try:
-                self._send_json(HTTPStatus.OK, {"ok": True, "workflows": list_workflow_files()})
+                self._send_json(HTTPStatus.OK, {"ok": True, "workflows": list_workflow_summaries()})
             except Exception as exc:
                 self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
             return

@@ -1072,6 +1072,7 @@
         previewUrls: new Map(),
         detailRun: null,
         currentWorkflow: "",
+        workflows: [],
       };
 
       const tokenInput = document.getElementById("token");
@@ -1174,14 +1175,33 @@
         workflowChip.textContent = workflowSelect.value || "loading...";
       }
 
+      function fillFormFromWorkflow(workflowName) {
+        const workflow = state.workflows.find((item) => item.name === workflowName);
+        if (!workflow || !workflow.defaults) {
+          updateComposerChips();
+          return;
+        }
+
+        const defaults = workflow.defaults;
+        filenamePrefixInput.value = defaults.filename_prefix ?? "";
+        seedInput.value = defaults.seed ?? "";
+        widthInput.value = defaults.width ?? "";
+        heightInput.value = defaults.height ?? "";
+        batchSizeInput.value = defaults.batch_size ?? "";
+        positivePromptInput.value = defaults.positive_prompt ?? "";
+        negativePromptInput.value = defaults.negative_prompt ?? "";
+        updateComposerChips();
+      }
+
       async function loadWorkflows() {
         try {
           const data = await fetchJson("/workflows", { headers: authHeaders() });
-          workflowSelect.innerHTML = (data.workflows || [])
-            .map((workflow) => `<option value="${escapeHtml(workflow)}">${escapeHtml(workflow)}</option>`)
+          state.workflows = data.workflows || [];
+          workflowSelect.innerHTML = state.workflows
+            .map((workflow) => `<option value="${escapeHtml(workflow.name)}">${escapeHtml(workflow.name)}</option>`)
             .join("");
           state.currentWorkflow = workflowSelect.value || "";
-          updateComposerChips();
+          fillFormFromWorkflow(state.currentWorkflow);
         } catch (error) {
           workflowSelect.innerHTML = `<option value="">Failed to load workflows</option>`;
           submitStatus.textContent = error.message;
@@ -1499,7 +1519,10 @@
         persistToken();
       });
 
-      workflowSelect.addEventListener("change", updateComposerChips);
+      workflowSelect.addEventListener("change", () => {
+        state.currentWorkflow = workflowSelect.value || "";
+        fillFormFromWorkflow(state.currentWorkflow);
+      });
       filenamePrefixInput.addEventListener("input", updateComposerChips);
       autoRefreshCheckbox.addEventListener("change", updateAutoRefresh);
       submitBtn.addEventListener("click", submitRun);
