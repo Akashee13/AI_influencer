@@ -119,7 +119,6 @@ def ui_workflow_to_api_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
                 "class_type": node_type,
                 "inputs": {
                     "seed": widgets[0],
-                    "control_after_generate": widgets[1],
                     "steps": widgets[2],
                     "cfg": widgets[3],
                     "sampler_name": widgets[4],
@@ -237,7 +236,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--control-after-generate",
         choices=["fixed", "randomize", "increment", "decrement"],
-        help="Override control_after_generate",
+        help="Update the locked workflow metadata; not forwarded to the ComfyUI API payload",
     )
     parser.add_argument("--filename-prefix", default="mumbai-yoga", help="Saved filename prefix")
     parser.add_argument("--wait", action="store_true", help="Wait for completion and print history summary")

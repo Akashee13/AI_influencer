@@ -104,7 +104,6 @@ def ui_workflow_to_api_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
                 "class_type": node_type,
                 "inputs": {
                     "seed": widgets[0],
-                    "control_after_generate": widgets[1],
                     "steps": widgets[2],
                     "cfg": widgets[3],
                     "sampler_name": widgets[4],
