@@ -10,7 +10,7 @@ Feature: [003-face-locked-flux-runtime-compatibility](./spec.md)
 
 ## Phase 2: Implementation
 
-- [ ] Update the relevant workflow, runtime assumptions, or gateway handling to eliminate the `timestep_zero_index` execution failure.
+- [x] Update the relevant workflow, runtime assumptions, or gateway handling to eliminate the `timestep_zero_index` execution failure.
 - [x] Update gateway and QA harness handling so terminal ComfyUI execution errors are recorded as errors instead of misleading completed runs.
 - [x] Add targeted gateway logging for request intake, override application, input-asset assignment, prompt submission, and terminal error extraction so the next runtime iteration is diagnosable from logs.
 - [x] Update the dashboard result gallery and detail view so failed runs render as failed states with error context instead of generic empty preview cards.

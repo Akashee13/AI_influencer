@@ -44,6 +44,29 @@ mkdir -p ~/comfy/models/unet
 mkdir -p ~/comfy/models/insightface/models
 ```
 
+## Runtime Mismatch Fix (timestep_zero_index)
+
+If runs fail with:
+
+`forward_orig() got an unexpected keyword argument 'timestep_zero_index'`
+
+use the repo repair script from the VM checkout:
+
+```bash
+cd ~/ai-influencer
+chmod +x scripts/fix_flux_timestep_zero_index.sh
+sudo ./scripts/fix_flux_timestep_zero_index.sh
+```
+
+What this does:
+
+- updates `ComfyUI-PuLID-Flux` to latest upstream
+- reinstalls node Python dependencies
+- installs a small startup patch under `~/comfy/custom_nodes/ai_influencer_runtime_compat`
+- restarts ComfyUI
+
+This patch is a bridge for mixed-version stacks. Keep ComfyUI and custom nodes aligned as the long-term state.
+
 ## Required Downloads
 
 Download these into the matching folders above:

@@ -149,3 +149,19 @@ sudo /tmp/gcp-comfyui-setup.sh
 - If `nvidia-smi` is not yet available, the script will install the driver and stop.
 - At that point, reboot the VM from GCP, reconnect over SSH, and rerun the same command block.
 - After the second run succeeds, stop and choose how you want to open ComfyUI from your Mac.
+
+## If Face-Locked FLUX Runs Fail
+
+If the QA run fails with:
+
+`forward_orig() got an unexpected keyword argument 'timestep_zero_index'`
+
+run the runtime repair from the VM:
+
+```bash
+cd ~/ai-influencer
+chmod +x scripts/fix_flux_timestep_zero_index.sh
+sudo ./scripts/fix_flux_timestep_zero_index.sh
+```
+
+Then rerun the same QA harness command to confirm image generation succeeds.

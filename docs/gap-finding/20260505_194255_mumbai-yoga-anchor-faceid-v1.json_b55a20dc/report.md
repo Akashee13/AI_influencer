@@ -38,6 +38,18 @@ If this workflow is expected to use scene-reference latents, verify that the cur
 Run completed through the gateway and uploaded the default Instagram scene reference successfully, so intake, workflow discovery, and submission paths are working.
 Failure occurred during model execution rather than during upload or gateway submission.
 
+## Applied Fix Path
+
+Repository now includes a VM repair script for this exact crash:
+
+```bash
+cd ~/ai-influencer
+chmod +x scripts/fix_flux_timestep_zero_index.sh
+sudo ./scripts/fix_flux_timestep_zero_index.sh
+```
+
+The script updates `ComfyUI-PuLID-Flux`, installs a startup compatibility patch for older `forward_orig` signatures, and restarts ComfyUI.
+
 ## Runtime Metadata
 
 ```json
