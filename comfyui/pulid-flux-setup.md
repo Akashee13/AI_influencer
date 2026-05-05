@@ -55,8 +55,10 @@ use the repo repair script from the VM checkout:
 ```bash
 cd ~/ai-influencer
 chmod +x scripts/fix_flux_timestep_zero_index.sh
-sudo ./scripts/fix_flux_timestep_zero_index.sh
+./scripts/fix_flux_timestep_zero_index.sh
 ```
+
+If your VM user has sudo, running with `sudo` is also fine.
 
 What this does:
 

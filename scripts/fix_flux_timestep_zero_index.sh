@@ -8,13 +8,31 @@ CUSTOM_NODES_DIR="$COMFY_ROOT/custom_nodes"
 PULID_NODE_DIR="$CUSTOM_NODES_DIR/ComfyUI-PuLID-Flux"
 PATCH_DIR="$CUSTOM_NODES_DIR/ai_influencer_runtime_compat"
 PATCH_FILE="$PATCH_DIR/__init__.py"
+CAN_SUDO=0
 
 log() {
   printf '\n[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
 }
 
 run_as_user() {
-  sudo -u "$TARGET_USER" -H bash -lc "$*"
+  if [[ "$(id -un)" == "$TARGET_USER" ]]; then
+    bash -lc "$*"
+    return
+  fi
+
+  if [[ "$CAN_SUDO" -eq 1 ]]; then
+    sudo -u "$TARGET_USER" -H bash -lc "$*"
+    return
+  fi
+
+  echo "Cannot run as target user without sudo. Current user: $(id -un), target user: $TARGET_USER"
+  exit 1
+}
+
+init_privileges() {
+  if command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
+    CAN_SUDO=1
+  fi
 }
 
 ensure_prereqs() {
@@ -111,24 +129,27 @@ apply_patch()
 NODE_CLASS_MAPPINGS = {}
 NODE_DISPLAY_NAME_MAPPINGS = {}
 PYEOF
-  chown "$TARGET_USER":"$TARGET_USER" "$PATCH_FILE"
+  if [[ "$CAN_SUDO" -eq 1 ]]; then
+    chown "$TARGET_USER":"$TARGET_USER" "$PATCH_FILE"
+  fi
 }
 
 restart_services() {
-  if systemctl list-unit-files | grep -q '^comfyui.service'; then
+  if [[ "$CAN_SUDO" -eq 1 ]] && systemctl list-unit-files | grep -q '^comfyui.service'; then
     log "Restarting comfyui.service"
     systemctl restart comfyui.service
     systemctl --no-pager --full status comfyui.service | sed -n '1,25p'
     return
   fi
 
-  log "comfyui.service was not found; trying process restart fallback"
+  log "Using process restart fallback (no sudo/systemd control)"
   run_as_user "pkill -f 'python3 main.py' || true"
   run_as_user "cd '$COMFY_ROOT/ComfyUI' && nohup python3 main.py --listen 127.0.0.1 --port 8188 > '$TARGET_HOME/comfy.log' 2>&1 &"
   run_as_user "tail -n 30 '$TARGET_HOME/comfy.log'"
 }
 
 main() {
+  init_privileges
   ensure_prereqs
   refresh_pulid_flux
   install_runtime_patch

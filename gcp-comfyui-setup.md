@@ -161,7 +161,9 @@ run the runtime repair from the VM:
 ```bash
 cd ~/ai-influencer
 chmod +x scripts/fix_flux_timestep_zero_index.sh
-sudo ./scripts/fix_flux_timestep_zero_index.sh
+./scripts/fix_flux_timestep_zero_index.sh
 ```
+
+If your VM user has sudo, running with `sudo` is also fine.
 
 Then rerun the same QA harness command to confirm image generation succeeds.
