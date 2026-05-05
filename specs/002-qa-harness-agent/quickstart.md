@@ -23,7 +23,7 @@ python3 scripts/qa_harness.py
 Each QA run creates a folder under:
 
 ```text
-data/qa_runs/<timestamp>_<prompt_id>/
+docs/gap-finding/<timestamp>_<workflow>_<prompt_id>/
 ```
 
 Expected artifacts:

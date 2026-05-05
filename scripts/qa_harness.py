@@ -8,6 +8,7 @@ through a structured gap-analysis report.
 
 from __future__ import annotations
 
+import argparse
 import getpass
 import json
 import os
@@ -23,7 +24,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-QA_RUNS_DIR = ROOT / "data" / "qa_runs"
+QA_RUNS_DIR = ROOT / "docs" / "gap-finding"
 DEFAULT_GATEWAY_URL = os.environ.get("COMFYUI_GATEWAY_URL", "http://127.0.0.1:9000")
 DEFAULT_GATEWAY_TOKEN = os.environ.get("COMFYUI_GATEWAY_TOKEN", "")
 
@@ -91,6 +92,16 @@ def prompt_rating(label: str) -> str:
         print("Choose 1, 2, 3 or type pass/partial/fail.")
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Interactive QA harness for gateway-driven workflow testing.")
+    parser.add_argument("--gateway-url", default=DEFAULT_GATEWAY_URL, help="Gateway base URL.")
+    parser.add_argument("--token", default=DEFAULT_GATEWAY_TOKEN, help="Gateway bearer token.")
+    parser.add_argument("--workflow", default="", help="Prefill workflow selection by exact workflow filename.")
+    parser.add_argument("--scene-url", default="", help="Prefill scene reference Instagram/direct image URL.")
+    parser.add_argument("--filename-prefix", default="", help="Prefill filename prefix.")
+    return parser.parse_args()
+
+
 def sanitize_slug(value: str) -> str:
     slug = re.sub(r"[^a-zA-Z0-9._-]+", "-", value.strip()).strip("-")
     return slug or "qa-run"
@@ -130,13 +141,14 @@ def download_file(base_url: str, path: str, token: str, destination: Path) -> Pa
     return destination
 
 
-def choose_workflow(base_url: str, token: str) -> dict[str, Any]:
+def choose_workflow(base_url: str, token: str, *, workflow_name: str = "") -> dict[str, Any]:
     payload = api_get_json(base_url, "/workflows", token)
     workflows = payload.get("workflows", [])
     if not workflows:
         raise QaHarnessError("Gateway returned no workflows.")
     options = [workflow["name"] for workflow in workflows if workflow.get("name")]
-    selected_name = prompt_choice("Choose a workflow:", options, default=options[0])
+    selected_default = workflow_name if workflow_name in options else options[0]
+    selected_name = prompt_choice("Choose a workflow:", options, default=selected_default)
     for workflow in workflows:
         if workflow.get("name") == selected_name:
             return workflow
@@ -299,13 +311,14 @@ def collect_review() -> dict[str, Any]:
 
 def main() -> int:
     try:
+        args = parse_args()
         print("QA Harness Agent\n")
-        base_url = prompt_text("Gateway base URL", default=DEFAULT_GATEWAY_URL, required=True)
-        token = DEFAULT_GATEWAY_TOKEN or getpass.getpass("Gateway token: ").strip()
+        base_url = prompt_text("Gateway base URL", default=args.gateway_url, required=True)
+        token = args.token or getpass.getpass("Gateway token: ").strip()
         if not token:
             raise QaHarnessError("Gateway token is required.")
 
-        workflow = choose_workflow(base_url, token)
+        workflow = choose_workflow(base_url, token, workflow_name=args.workflow)
         workflow_name = str(workflow.get("name", "")).strip()
         defaults = workflow.get("defaults", {}) if isinstance(workflow, dict) else {}
         supports_scene_reference = bool(defaults.get("supports_scene_reference_image"))
@@ -318,6 +331,7 @@ def main() -> int:
         if supports_scene_reference:
             scene_reference_url = prompt_text(
                 "Paste the scene reference Instagram post or direct image URL",
+                default=args.scene_url,
                 required=True,
             )
             print("Uploading scene reference...")
@@ -325,7 +339,11 @@ def main() -> int:
             print(f"Scene reference saved as: {scene_reference_image}")
 
         filename_prefix_default = f"qa-{sanitize_slug(workflow_name).lower()}"
-        filename_prefix = prompt_text("Filename prefix", default=filename_prefix_default, required=True)
+        filename_prefix = prompt_text(
+            "Filename prefix",
+            default=args.filename_prefix or filename_prefix_default,
+            required=True,
+        )
 
         overrides: dict[str, Any] = {"filename_prefix": filename_prefix}
         if supports_scene_reference and scene_reference_image:
