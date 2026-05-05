@@ -89,6 +89,8 @@ Repo-level checks:
 - [quickstart.md](/Users/akash/Documents/PetProjects/AI Influencer/specs/003-face-locked-flux-runtime-compatibility/quickstart.md)
 - [report.md](/Users/akash/Documents/PetProjects/AI Influencer/docs/gap-finding/20260505_194255_mumbai-yoga-anchor-faceid-v1.json_b55a20dc/report.md)
 - [run.json](/Users/akash/Documents/PetProjects/AI Influencer/docs/gap-finding/20260505_194255_mumbai-yoga-anchor-faceid-v1.json_b55a20dc/run.json)
+- [report.md](/Users/akash/Documents/PetProjects/AI Influencer/docs/gap-finding/20260505_195523_mumbai-yoga-anchor-faceid-v1.json_966f71ee/report.md)
+- [run.json](/Users/akash/Documents/PetProjects/AI Influencer/docs/gap-finding/20260505_195523_mumbai-yoga-anchor-faceid-v1.json_966f71ee/run.json)
 - [mumbai-yoga-anchor-faceid-v1.json](/Users/akash/Documents/PetProjects/AI Influencer/comfyui/workflows/mumbai-yoga-anchor-faceid-v1.json)
 - [workflow_bindings.json](/Users/akash/Documents/PetProjects/AI Influencer/comfyui/workflow_bindings.json)
 - [comfyui_gateway.py](/Users/akash/Documents/PetProjects/AI Influencer/services/comfyui_gateway.py)

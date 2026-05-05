@@ -68,12 +68,13 @@ Acceptance criteria:
 
 ### Story 4: Non-Regression Discipline
 
-As a maintainer, I want future changes to start from a written spec and task list so that new requirements stop silently overriding older ones.
+As a maintainer, I want future changes to follow the Spec Kit workflow by default so that new requirements stop silently overriding older ones.
 
 Acceptance criteria:
 
 - A written constitution exists in the repository.
 - A feature-level spec, plan, and tasks file exist for this effort.
+- Future repository changes create or update a matching Spec Kit package before implementation.
 - Future workflow changes can reference these artifacts directly.
 
 ## Functional Requirements
@@ -128,6 +129,10 @@ This feature MUST ship with a manual validation flow covering:
 - face-locked workflow through UI
 - face-locked workflow through CLI
 - one legacy workflow non-regression path
+
+### FR-8 Mandatory Spec Kit workflow
+
+The repository constitution MUST require that any non-trivial repository change follows the Spec Kit workflow by creating or updating the matching package under `specs/` before implementation begins.
 
 ## Success Metrics
 

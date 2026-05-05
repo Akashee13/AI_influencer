@@ -1,6 +1,6 @@
 # AI Influencer Constitution
 
-Version: 1.0.0
+Version: 1.1.0
 Ratified: 2026-05-05
 Last Amended: 2026-05-05
 
@@ -75,16 +75,18 @@ This project spans Python, HTML/JS, workflow JSON, and remote ComfyUI runtime be
 
 ## Article VII: Living Spec Discipline
 
-1. Significant changes MUST begin with or update:
+1. Any repository change beyond trivial housekeeping MUST follow the Spec Kit workflow by creating or updating the matching package under `specs/` before implementation proceeds.
+2. Significant changes MUST begin with or update:
    - `spec.md`
    - `plan.md`
    - `tasks.md`
-2. Specs MUST describe observable behavior, not just implementation ideas.
-3. Plans MUST identify which existing behavior is at risk.
-4. Tasks MUST be traceable to concrete files and validation steps.
+3. Specs MUST describe observable behavior, not just implementation ideas.
+4. Plans MUST identify which existing behavior is at risk.
+5. Tasks MUST be traceable to concrete files and validation steps.
+6. Implementing code, workflow, UI, or runtime-affecting docs without the matching Spec Kit package is non-compliant unless the change is purely trivial housekeeping.
 
 Rationale:
-The repository is transitioning from exploratory hacking to controlled product iteration. Specification must become the source of change discipline.
+The repository is transitioning from exploratory hacking to controlled product iteration. Specification must become the default workflow for changes rather than an optional afterthought.
 
 ## Non-Negotiable Gates
 
@@ -95,6 +97,7 @@ Before implementation begins on a feature, the plan MUST answer:
 3. How is identity preserved?
 4. How is scene/style reference preserved?
 5. What proves the old path still works after the new path ships?
+6. Which Spec Kit package owns this change?
 
 ## Amendment Policy
 
@@ -103,3 +106,7 @@ This constitution may be amended only when:
 1. The change is written explicitly.
 2. The reason for amendment is stated.
 3. Any affected specs or plans are updated in the same change set.
+
+Amendment reason for Version 1.1.0:
+
+- Make Spec Kit workflow mandatory for repository changes so future work consistently starts from `spec.md`, `plan.md`, and `tasks.md` instead of bypassing governance.

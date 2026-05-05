@@ -67,6 +67,8 @@ Add Spec Kit-style repository structure:
 - `specs/001-regression-safe-workflow-governance/tasks.md`
 - `specs/001-regression-safe-workflow-governance/quickstart.md`
 
+Use that structure as the required workflow for future non-trivial changes, not just as bootstrap scaffolding.
+
 ### 2. Binding source of truth
 
 Add a repo config file:

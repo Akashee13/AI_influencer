@@ -308,6 +308,36 @@ def parse_history_record(history: dict[str, Any], prompt_id: str) -> dict[str, A
     return record
 
 
+def history_terminal_state(history: dict[str, Any], prompt_id: str) -> tuple[str, str | None]:
+    record = parse_history_record(history, prompt_id)
+    status = record.get("status", {})
+    if not isinstance(status, dict):
+        return "completed", None
+
+    status_str = str(status.get("status_str", "")).strip().lower()
+    messages = status.get("messages", [])
+    if not isinstance(messages, list):
+        messages = []
+
+    for message in messages:
+        if not isinstance(message, list) or len(message) < 2:
+            continue
+        event_name = str(message[0]).strip().lower()
+        payload = message[1] if isinstance(message[1], dict) else {}
+        if event_name == "execution_error":
+            error_text = str(payload.get("exception_message", "")).strip() or None
+            return "error", error_text
+
+    if status_str in {"error", "failed"}:
+        return status_str, None
+
+    completed_flag = status.get("completed")
+    if completed_flag is False:
+        return "error", None
+
+    return "completed", None
+
+
 def extract_outputs_from_history(history: dict[str, Any], prompt_id: str) -> list[dict[str, Any]]:
     record = parse_history_record(history, prompt_id)
     outputs = record.get("outputs", {})
@@ -358,7 +388,7 @@ def update_run_record(
     error_text: str | None = None,
 ) -> None:
     outputs = extract_outputs_from_history(history, prompt_id) if history else None
-    completed_at = utc_now() if status == "completed" else None
+    completed_at = utc_now() if status in {"completed", "error", "failed"} else None
     with db_connect() as conn:
         conn.execute(
             """
@@ -1323,11 +1353,13 @@ def build_status(prompt_id: str) -> dict[str, Any]:
     try:
         history = api_get(history_url)
         if history:
+            terminal_status, error_text = history_terminal_state(history, prompt_id)
             return {
                 "ok": True,
                 "prompt_id": prompt_id,
-                "status": "completed",
+                "status": terminal_status,
                 "history": history,
+                "error_text": error_text,
             }
     except error.HTTPError as exc:
         if exc.code != 404:
@@ -1407,14 +1439,20 @@ def backfill_runs_from_history(limit: int = 200) -> None:
             client_id=client_id,
             workflow_name=infer_workflow_name_from_prompt(prompt_payload if isinstance(prompt_payload, dict) else None),
         )
-        update_run_record(prompt_id, status="completed", history={prompt_id: record})
+        terminal_status, error_text = history_terminal_state({prompt_id: record}, prompt_id)
+        update_run_record(prompt_id, status=terminal_status, history={prompt_id: record}, error_text=error_text)
         count += 1
 
 
 def sync_run_status(prompt_id: str) -> dict[str, Any]:
     status = build_status(prompt_id)
-    history = status.get("history") if status.get("status") == "completed" else None
-    update_run_record(prompt_id, status=status["status"], history=history)
+    history = status.get("history") if status.get("status") in {"completed", "error", "failed"} else None
+    update_run_record(
+        prompt_id,
+        status=status["status"],
+        history=history,
+        error_text=status.get("error_text"),
+    )
     return status
 
 
@@ -1446,7 +1484,7 @@ def active_runs_payload(*, limit: int = 100, offset: int = 0, query: str = "") -
 def completed_runs_payload(*, limit: int = 50, offset: int = 0, query: str = "") -> dict[str, Any]:
     backfill_runs_from_history()
     sync_nonterminal_runs()
-    runs, total = list_runs_by_status(["completed"], limit=limit, offset=offset, query=query)
+    runs, total = list_runs_by_status(["completed", "error", "failed"], limit=limit, offset=offset, query=query)
     return {"ok": True, "runs": [summarize_run(run, include_outputs=True) for run in runs], "total": total}
 
 
@@ -1588,7 +1626,8 @@ class Handler(BaseHTTPRequestHandler):
                 return
             try:
                 history = api_get(f"{COMFYUI_URL.rstrip('/')}/history/{prompt_id}")
-                update_run_record(prompt_id, status="completed", history=history)
+                terminal_status, error_text = history_terminal_state(history, prompt_id)
+                update_run_record(prompt_id, status=terminal_status, history=history, error_text=error_text)
                 self._send_json(HTTPStatus.OK, {"ok": True, "prompt_id": prompt_id, "history": history})
             except Exception as exc:
                 self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
@@ -1754,9 +1793,12 @@ class Handler(BaseHTTPRequestHandler):
             }
             if wait and result["prompt_id"]:
                 history = wait_for_history(result["prompt_id"], timeout_s)
-                update_run_record(result["prompt_id"], status="completed", history=history)
-                result["status"] = "completed"
+                terminal_status, error_text = history_terminal_state(history, result["prompt_id"])
+                update_run_record(result["prompt_id"], status=terminal_status, history=history, error_text=error_text)
+                result["status"] = terminal_status
                 result["history"] = history
+                if error_text:
+                    result["error_text"] = error_text
             self._send_json(HTTPStatus.OK, result)
         except Exception as exc:
             self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})

@@ -6,6 +6,7 @@ Feature: [001-regression-safe-workflow-governance](./spec.md)
 
 - [x] Create Spec Kit-compatible repository scaffolding under `.specify/` and `specs/`.
 - [x] Write project constitution focused on regression safety, workflow contracts, runtime truth, and validation discipline.
+- [x] Amend the constitution so Spec Kit workflow is mandatory for future non-trivial repository changes.
 - [x] Write initial feature spec for workflow governance and non-regression requirements.
 - [x] Write implementation plan aligned to current repository architecture.
 - [x] Write operator quickstart for manual validation.

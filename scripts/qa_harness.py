@@ -224,7 +224,7 @@ def poll_status(base_url: str, token: str, prompt_id: str, *, max_wait_s: int = 
         if status == "completed":
             return payload
         if status in {"failed", "error"}:
-            raise QaHarnessError(json.dumps(payload, indent=2))
+            return payload
         sleep_for = backoff_schedule[min(attempt, len(backoff_schedule) - 1)]
         attempt += 1
         time.sleep(sleep_for)
@@ -384,7 +384,7 @@ def main() -> int:
         print(f"Submitted prompt: {prompt_id}")
 
         print("Waiting for completion...")
-        poll_status(base_url, token, prompt_id)
+        terminal_status = poll_status(base_url, token, prompt_id)
 
         run = fetch_run_detail(base_url, token, prompt_id)
         run_dir = build_run_dir(prompt_id, workflow_name)
@@ -394,6 +394,12 @@ def main() -> int:
             print(f"Downloaded output to: {local_output_path}")
         else:
             print("No downloadable output was found for this run.")
+        if str(terminal_status.get("status", "")).lower() in {"failed", "error"}:
+            error_text = str(terminal_status.get("error_text", "")).strip()
+            if error_text:
+                print(f"Run reached a terminal error state: {error_text}")
+            else:
+                print("Run reached a terminal error state.")
 
         review = collect_review()
         report_body = build_report(

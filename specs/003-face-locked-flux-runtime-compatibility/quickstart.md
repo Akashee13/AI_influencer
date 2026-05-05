@@ -1,8 +1,9 @@
 # Quickstart: Face-Locked FLUX Runtime Compatibility
 
-## Source Report
+## Source Reports
 
 - `docs/gap-finding/20260505_194255_mumbai-yoga-anchor-faceid-v1.json_b55a20dc/report.md`
+- `docs/gap-finding/20260505_195523_mumbai-yoga-anchor-faceid-v1.json_966f71ee/report.md`
 
 ## Goal
 
@@ -17,7 +18,9 @@ Use this checklist to reproduce the runtime compatibility gap and verify that th
 ## Reproduction
 
 1. Open the source QA report and confirm the failing workflow is `mumbai-yoga-anchor-faceid-v1.json`.
-2. Review the saved run metadata in `docs/gap-finding/20260505_194255_mumbai-yoga-anchor-faceid-v1.json_b55a20dc/run.json`.
+2. Review the saved run metadata in both:
+   - `docs/gap-finding/20260505_194255_mumbai-yoga-anchor-faceid-v1.json_b55a20dc/run.json`
+   - `docs/gap-finding/20260505_195523_mumbai-yoga-anchor-faceid-v1.json_966f71ee/run.json`
 3. Re-run the default QA pass:
 
 ```bash
@@ -33,6 +36,7 @@ Expected pre-fix behavior:
 - runtime execution fails before image generation
 - the failure includes `forward_orig() got an unexpected keyword argument 'timestep_zero_index'`
 - no output image is available for real QA review
+- the same failure reproduces on consecutive default reruns
 
 ## Validation
 

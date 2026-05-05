@@ -9,13 +9,14 @@ Owner: Repository maintainers
 
 The repository needs a compatibility guardrail for face-locked FLUX workflows so the default `mumbai-yoga-anchor-faceid-v1.json` path can complete image generation on the installed ComfyUI stack instead of failing during sampler execution.
 
-Source QA report:
+Source QA reports:
 
 - `docs/gap-finding/20260505_194255_mumbai-yoga-anchor-faceid-v1.json_b55a20dc/report.md`
+- `docs/gap-finding/20260505_195523_mumbai-yoga-anchor-faceid-v1.json_966f71ee/report.md`
 
 ## Problem Statement
 
-The latest QA pass proved that workflow selection, scene-reference upload, and gateway submission all work, but the face-locked FLUX workflow still fails before producing an image. The run reached `SamplerCustomAdvanced` and crashed with `TypeError: forward_orig() got an unexpected keyword argument 'timestep_zero_index'`.
+Two consecutive default QA passes proved that workflow selection, scene-reference upload, and gateway submission all work, but the face-locked FLUX workflow still fails before producing an image. Both runs reached `SamplerCustomAdvanced` and crashed with `TypeError: forward_orig() got an unexpected keyword argument 'timestep_zero_index'`.
 
 This leaves the system in a misleading state:
 
