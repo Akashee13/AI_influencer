@@ -6,7 +6,7 @@ Status: Draft
 
 ## Goal
 
-Create a lightweight interactive QA harness that tests workflows through the gateway and writes structured markdown reports for regression analysis and creative quality review.
+Create a QA agent skill, backed by a lightweight interactive harness, that tests workflows through the gateway and writes structured markdown reports for regression analysis and creative quality review.
 
 ## Constitution Check
 
@@ -28,7 +28,13 @@ The harness itself will be validated via syntax checks and by running at least o
 
 ## Technical Approach
 
-### 1. Add a new interactive CLI script
+### 1. Add a QA skill plus helper harness
+
+Skill:
+
+- `skills/qa-gap-finding-agent/SKILL.md`
+
+Helper script:
 
 File:
 
@@ -36,6 +42,7 @@ File:
 
 Responsibilities:
 
+- skill handles reasoning, follow-up questions, and qualitative interpretation
 - fetch workflows from gateway
 - allow operator selection
 - upload scene reference URL when needed
@@ -70,6 +77,7 @@ Add a dedicated feature package under:
 
 ## Files In Scope
 
+- [qa-gap-finding-agent](/Users/akash/Documents/PetProjects/AI Influencer/skills/qa-gap-finding-agent/SKILL.md)
 - [qa_harness.py](/Users/akash/Documents/PetProjects/AI Influencer/scripts/qa_harness.py)
 - [spec.md](/Users/akash/Documents/PetProjects/AI Influencer/specs/002-qa-harness-agent/spec.md)
 - [plan.md](/Users/akash/Documents/PetProjects/AI Influencer/specs/002-qa-harness-agent/plan.md)

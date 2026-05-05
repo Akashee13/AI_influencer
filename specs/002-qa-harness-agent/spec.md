@@ -7,7 +7,7 @@ Owner: Repository maintainers
 
 ## Summary
 
-The repository needs an operator-facing QA harness that can run a workflow against a scene reference, wait for the result, and write a structured markdown gap report describing how the generated output differs from the expected outcome.
+The repository needs an operator-facing QA agent skill, supported by a deterministic helper harness, that can run a workflow against a scene reference, wait for the result, and write a structured markdown gap report describing how the generated output differs from the expected outcome.
 
 ## Problem Statement
 
@@ -21,10 +21,11 @@ The current system can generate images, but testing quality is still ad hoc. The
 
 ## Goals
 
-1. Provide an interactive QA agent script for manual operator testing.
-2. Route all generation through the gateway so QA reflects real production behavior.
-3. Download the produced output locally into the repository for inspection.
-4. Produce a markdown report that captures:
+1. Provide a QA agent skill for manual operator testing.
+2. Support that skill with a deterministic helper harness script.
+3. Route all generation through the gateway so QA reflects real production behavior.
+4. Download the produced output locally into the repository for inspection.
+5. Produce a markdown report that captures:
    - test inputs
    - expected outcome
    - observed result metadata
@@ -42,6 +43,10 @@ The current system can generate images, but testing quality is still ad hoc. The
 As an operator, I want a QA agent that asks me for a workflow and a scene-reference Instagram post link, submits the job, waits for completion, and writes a gap-analysis markdown file so we can iterate systematically instead of guessing what broke.
 
 ## Functional Requirements
+
+### FR-0 Skill wrapper
+
+The repository MUST include a reusable skill that tells the agent how to run QA passes and where reports belong.
 
 ### FR-1 Interactive intake
 
@@ -93,7 +98,7 @@ The harness MUST write a markdown report containing:
 
 ## Success Metrics
 
-1. A non-technical operator can run a full QA pass from one command.
+1. A non-technical operator can run a full QA pass through the QA skill workflow.
 2. Each run creates a reusable markdown report in the repository.
 3. Reports make fix gaps concrete enough to turn into follow-up tasks.
 

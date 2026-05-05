@@ -25,12 +25,24 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 QA_RUNS_DIR = ROOT / "docs" / "gap-finding"
-DEFAULT_GATEWAY_URL = os.environ.get("COMFYUI_GATEWAY_URL", "http://127.0.0.1:9000")
-DEFAULT_GATEWAY_TOKEN = os.environ.get("COMFYUI_GATEWAY_TOKEN", "")
+LOCAL_CONFIG_PATH = ROOT / "qa_harness.local.json"
+FALLBACK_GATEWAY_URL = "http://127.0.0.1:9000"
 
 
 class QaHarnessError(RuntimeError):
     pass
+
+
+def load_local_config() -> dict[str, Any]:
+    if not LOCAL_CONFIG_PATH.exists():
+        return {}
+    try:
+        payload = json.loads(LOCAL_CONFIG_PATH.read_text())
+    except Exception as exc:
+        raise QaHarnessError(f"failed to read local harness config at {LOCAL_CONFIG_PATH}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise QaHarnessError(f"local harness config must be a JSON object: {LOCAL_CONFIG_PATH}")
+    return payload
 
 
 def prompt_text(label: str, *, default: str = "", required: bool = False) -> str:
@@ -93,12 +105,27 @@ def prompt_rating(label: str) -> str:
 
 
 def parse_args() -> argparse.Namespace:
+    local_config = load_local_config()
+    default_gateway_url = str(
+        os.environ.get("COMFYUI_GATEWAY_URL")
+        or local_config.get("gateway_url")
+        or FALLBACK_GATEWAY_URL
+    ).strip()
+    default_gateway_token = str(
+        os.environ.get("COMFYUI_GATEWAY_TOKEN")
+        or local_config.get("gateway_token")
+        or ""
+    ).strip()
+    default_workflow = str(local_config.get("default_workflow") or "").strip()
+    default_scene_url = str(local_config.get("default_scene_url") or "").strip()
+    default_filename_prefix = str(local_config.get("default_filename_prefix") or "").strip()
+
     parser = argparse.ArgumentParser(description="Interactive QA harness for gateway-driven workflow testing.")
-    parser.add_argument("--gateway-url", default=DEFAULT_GATEWAY_URL, help="Gateway base URL.")
-    parser.add_argument("--token", default=DEFAULT_GATEWAY_TOKEN, help="Gateway bearer token.")
-    parser.add_argument("--workflow", default="", help="Prefill workflow selection by exact workflow filename.")
-    parser.add_argument("--scene-url", default="", help="Prefill scene reference Instagram/direct image URL.")
-    parser.add_argument("--filename-prefix", default="", help="Prefill filename prefix.")
+    parser.add_argument("--gateway-url", default=default_gateway_url, help="Gateway base URL.")
+    parser.add_argument("--token", default=default_gateway_token, help="Gateway bearer token.")
+    parser.add_argument("--workflow", default=default_workflow, help="Prefill workflow selection by exact workflow filename.")
+    parser.add_argument("--scene-url", default=default_scene_url, help="Prefill scene reference Instagram/direct image URL.")
+    parser.add_argument("--filename-prefix", default=default_filename_prefix, help="Prefill filename prefix.")
     return parser.parse_args()
 
 

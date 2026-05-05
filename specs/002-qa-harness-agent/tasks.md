@@ -8,6 +8,7 @@ Feature: [002-qa-harness-agent](./spec.md)
 - [x] Write implementation plan.
 - [x] Write task list.
 - [x] Write quickstart.
+- [x] Add repo skill wrapper for QA gap finding.
 
 ## Phase 2: Harness Implementation
 

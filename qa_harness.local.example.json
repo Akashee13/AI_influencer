@@ -1,0 +1,7 @@
+{
+  "gateway_url": "http://127.0.0.1:9000",
+  "gateway_token": "replace-this-with-a-real-long-secret",
+  "default_workflow": "mumbai-yoga-anchor-faceid-v1.json",
+  "default_scene_url": "https://www.instagram.com/p/DXoinABDVRc/",
+  "default_filename_prefix": "qa-mumbai-yoga-anchor-faceid-v1.json"
+}
