@@ -437,6 +437,197 @@
         line-height: 1.5;
       }
 
+      .flow-block {
+        margin-top: 18px;
+        padding-top: 18px;
+        border-top: 1px solid rgba(255,255,255,0.08);
+      }
+
+      .flow-block:first-of-type {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: 0;
+      }
+
+      .flow-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        font-weight: 620;
+      }
+
+      .flow-title span {
+        color: var(--muted);
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .workflow-guide {
+        margin-top: 14px;
+        padding: 16px;
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,0.08);
+        background:
+          radial-gradient(circle at top right, rgba(121, 168, 255, 0.14), transparent 30%),
+          rgba(255,255,255,0.035);
+      }
+
+      .guide-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.06);
+        color: var(--accent-2);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+
+      .guide-title {
+        margin-top: 12px;
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .guide-copy {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.65;
+      }
+
+      .requirement-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .requirement-item {
+        display: flex;
+        gap: 12px;
+        align-items: start;
+        padding: 12px 14px;
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0.03);
+      }
+
+      .requirement-dot {
+        width: 12px;
+        height: 12px;
+        margin-top: 4px;
+        border-radius: 999px;
+        background: currentColor;
+        flex: 0 0 auto;
+      }
+
+      .requirement-item strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .requirement-item span {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .requirement-item.ready {
+        color: var(--accent-2);
+      }
+
+      .requirement-item.ready span {
+        color: #b6f6da;
+      }
+
+      .requirement-item.missing {
+        color: #ffcf79;
+      }
+
+      .requirement-item.missing span {
+        color: #f0d8a1;
+      }
+
+      .requirement-item.locked {
+        color: var(--accent-3);
+      }
+
+      .requirement-item.locked span {
+        color: #cad9ff;
+      }
+
+      .advanced-panel {
+        margin-top: 14px;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 20px;
+        background: rgba(255,255,255,0.03);
+        overflow: hidden;
+      }
+
+      .advanced-panel summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 16px 18px;
+        font-size: 14px;
+        font-weight: 620;
+      }
+
+      .advanced-panel summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .advanced-panel summary span {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 400;
+        line-height: 1.5;
+      }
+
+      .advanced-panel-body {
+        padding: 0 18px 18px;
+      }
+
+      .cta-card {
+        margin-top: 18px;
+        padding: 16px;
+        border-radius: 22px;
+        border: 1px solid rgba(255,255,255,0.08);
+        background:
+          radial-gradient(circle at top left, rgba(255, 106, 61, 0.16), transparent 28%),
+          rgba(255,255,255,0.035);
+      }
+
+      .cta-state {
+        font-size: 15px;
+        font-weight: 650;
+      }
+
+      .cta-state.ready {
+        color: var(--accent-2);
+      }
+
+      .cta-state.missing {
+        color: #ffcf79;
+      }
+
+      .cta-state.waiting {
+        color: var(--accent-3);
+      }
+
+      .microcopy {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
       .file-row {
         display: flex;
         gap: 10px;
@@ -745,6 +936,7 @@
       .state.running { color: var(--accent-2); background: rgba(113,255,193,0.1); }
       .state.pending, .state.submitted { color: #ffcf79; background: rgba(255, 207, 121, 0.1); }
       .state.completed { color: var(--accent-3); background: rgba(121,168,255,0.12); }
+      .state.error, .state.failed { color: #ffb1a8; background: rgba(201, 70, 62, 0.18); }
       .state.unknown { color: var(--muted); }
 
       .toolbar input {
@@ -787,6 +979,12 @@
           radial-gradient(circle at top, rgba(255,255,255,0.08), transparent 36%),
           #10151e;
         overflow: hidden;
+      }
+
+      .run-preview.failed {
+        background:
+          radial-gradient(circle at top, rgba(201, 70, 62, 0.16), transparent 42%),
+          #16131a;
       }
 
       .run-overlay {
@@ -841,6 +1039,28 @@
         place-items: center;
         color: var(--muted);
         font-size: 13px;
+      }
+
+      .run-preview .fallback.failed {
+        padding: 22px;
+        text-align: center;
+        gap: 10px;
+        align-content: center;
+        color: #ffd1cb;
+      }
+
+      .run-preview .fallback.failed strong {
+        display: block;
+        font-size: 18px;
+        color: #fff0ee;
+      }
+
+      .run-preview .fallback.failed span {
+        display: block;
+        font-size: 12px;
+        line-height: 1.55;
+        color: #ffc0b8;
+        overflow-wrap: anywhere;
       }
 
       .run-body {
@@ -928,6 +1148,17 @@
       .download-links .linkish {
         display: inline-block;
         max-width: 100%;
+        overflow-wrap: anywhere;
+      }
+
+      .error-note {
+        padding: 12px 14px;
+        border-radius: 16px;
+        border: 1px solid rgba(201, 70, 62, 0.28);
+        background: rgba(201, 70, 62, 0.08);
+        color: #ffd7d2;
+        font-size: 12px;
+        line-height: 1.55;
         overflow-wrap: anywhere;
       }
 
@@ -1134,7 +1365,7 @@
           <div class="brand-mark"></div>
           <div>
             <h1>ComfyUI Studio</h1>
-            <p>Prompt-first operations for your locked workflow library.</p>
+            <p>Guided workflow runs for operators, not just maintainers.</p>
           </div>
         </div>
         <div class="status-cluster" id="stats">
@@ -1160,82 +1391,115 @@
                 Remember token on this device
               </label>
 
-              <div class="field">
-                <label for="workflow">Workflow</label>
-                <select id="workflow"></select>
-                <div class="field-help" id="workflowCapabilities">Loading workflow capabilities...</div>
-              </div>
-
-              <div class="field" id="faceReferenceField">
-                <label for="faceReferenceImage">Anchor Face Reference</label>
-                <div class="file-row" id="faceReferenceFileRow">
-                  <input id="faceReferenceImage" type="file" accept="image/png,image/jpeg,image/webp">
-                  <button id="clearFaceReferenceImageBtn" class="ghost" type="button">Clear</button>
-                </div>
-                <div class="file-row" id="faceReferenceUrlRow" style="margin-top:10px;">
-                  <input id="faceReferenceImageUrl" type="url" placeholder="Paste public Instagram post or direct image URL">
-                  <button id="fetchFaceReferenceImageBtn" class="secondary" type="button">Fetch Link</button>
-                </div>
-                <div class="field-help" id="faceReferenceImageHint">
-                  Upload a clean face photo of your anchor when the workflow supports face identity locking.
-                </div>
-                <div class="file-chip" id="faceReferenceImageChip" hidden>
-                  <strong>Face Ref</strong>
-                  <span id="faceReferenceImageName">None</span>
-                </div>
-              </div>
-
-              <div class="field" id="sceneReferenceField">
-                <label for="referenceImage">Scene Reference Image</label>
-                <div class="file-row" id="sceneReferenceFileRow">
-                  <input id="referenceImage" type="file" accept="image/png,image/jpeg,image/webp">
-                  <button id="clearReferenceImageBtn" class="ghost" type="button">Clear</button>
-                </div>
-                <div class="file-row" id="sceneReferenceUrlRow" style="margin-top:10px;">
-                  <input id="referenceImageUrl" type="url" placeholder="Paste public Instagram post or direct image URL">
-                  <button id="fetchReferenceImageBtn" class="secondary" type="button">Fetch Link</button>
-                </div>
-                <div class="field-help" id="referenceImageHint">
-                  Upload a reference still, or paste a public Instagram post link and fetch its preview image when the workflow supports scene guidance.
-                </div>
-                <div class="file-chip" id="referenceImageChip" hidden>
-                  <strong>Scene Ref</strong>
-                  <span id="referenceImageName">None</span>
-                </div>
-              </div>
-
-              <div class="field">
-                <label for="filenamePrefix">Filename Prefix</label>
-                <input id="filenamePrefix" type="text" value="mumbai-yoga-ui">
-              </div>
-
-              <div class="row-2">
+              <div class="flow-block">
+                <div class="flow-title"><span>Step 1</span> Choose the workflow</div>
                 <div class="field">
-                  <label for="seed">Seed</label>
-                  <input id="seed" type="number" placeholder="Optional">
+                  <label for="workflow">Workflow</label>
+                  <select id="workflow"></select>
+                  <div class="field-help" id="workflowCapabilities">Loading workflow capabilities...</div>
                 </div>
-                <div class="field">
-                  <label for="batchSize">Batch Size</label>
-                  <input id="batchSize" type="number" placeholder="Optional">
-                </div>
-              </div>
-
-              <div class="row-2">
-                <div class="field">
-                  <label for="width">Width</label>
-                  <input id="width" type="number" placeholder="Optional">
-                </div>
-                <div class="field">
-                  <label for="height">Height</label>
-                  <input id="height" type="number" placeholder="Optional">
+                <div class="workflow-guide" id="workflowGuide">
+                  <div class="guide-badge" id="workflowModeBadge">Loading workflow</div>
+                  <div class="guide-title" id="workflowGuideTitle">Pick a workflow to see how it behaves.</div>
+                  <div class="guide-copy" id="workflowGuideBody">
+                    The studio will explain whether this workflow keeps the face locked, needs a scene image, or can run text-first.
+                  </div>
                 </div>
               </div>
 
-              <div class="actions">
-                <button id="submitBtn">Submit Run</button>
-                <button id="refreshBtn" class="secondary">Refresh</button>
+              <div class="flow-block">
+                <div class="flow-title"><span>Step 2</span> Add what this workflow needs</div>
+                <div class="field-help" id="requirementsSummary">
+                  Choose a workflow to see the exact inputs required before submit.
+                </div>
+                <div class="requirement-list" id="requirementsChecklist"></div>
+
+                <div class="field" id="faceReferenceField">
+                  <label for="faceReferenceImage">Anchor Face Reference</label>
+                  <div class="file-row" id="faceReferenceFileRow">
+                    <input id="faceReferenceImage" type="file" accept="image/png,image/jpeg,image/webp">
+                    <button id="clearFaceReferenceImageBtn" class="ghost" type="button">Clear</button>
+                  </div>
+                  <div class="file-row" id="faceReferenceUrlRow" style="margin-top:10px;">
+                    <input id="faceReferenceImageUrl" type="url" placeholder="Paste public Instagram post or direct image URL">
+                    <button id="fetchFaceReferenceImageBtn" class="secondary" type="button">Fetch Link</button>
+                  </div>
+                  <div class="field-help" id="faceReferenceImageHint">
+                    Upload a clean face photo of your anchor when the workflow supports face identity locking.
+                  </div>
+                  <div class="file-chip" id="faceReferenceImageChip" hidden>
+                    <strong>Face Ref</strong>
+                    <span id="faceReferenceImageName">None</span>
+                  </div>
+                </div>
+
+                <div class="field" id="sceneReferenceField">
+                  <label for="referenceImage">Scene Reference Image</label>
+                  <div class="file-row" id="sceneReferenceFileRow">
+                    <input id="referenceImage" type="file" accept="image/png,image/jpeg,image/webp">
+                    <button id="clearReferenceImageBtn" class="ghost" type="button">Clear</button>
+                  </div>
+                  <div class="file-row" id="sceneReferenceUrlRow" style="margin-top:10px;">
+                    <input id="referenceImageUrl" type="url" placeholder="Paste public Instagram post or direct image URL">
+                    <button id="fetchReferenceImageBtn" class="secondary" type="button">Fetch Link</button>
+                  </div>
+                  <div class="field-help" id="referenceImageHint">
+                    Upload a reference still, or paste a public Instagram post link and fetch its preview image when the workflow supports scene guidance.
+                  </div>
+                  <div class="file-chip" id="referenceImageChip" hidden>
+                    <strong>Scene Ref</strong>
+                    <span id="referenceImageName">None</span>
+                  </div>
+                </div>
               </div>
-              <div class="status-line" id="submitStatus">Ready.</div>
+
+              <div class="flow-block">
+                <div class="flow-title"><span>Step 3</span> Fine-tune if you want</div>
+                <details class="advanced-panel">
+                  <summary>
+                    Advanced settings
+                    <span>These are optional power-user controls. You can ignore them for normal runs.</span>
+                  </summary>
+                  <div class="advanced-panel-body">
+                    <div class="field">
+                      <label for="filenamePrefix">Filename Prefix</label>
+                      <input id="filenamePrefix" type="text" value="mumbai-yoga-ui">
+                    </div>
+
+                    <div class="row-2">
+                      <div class="field">
+                        <label for="seed">Seed</label>
+                        <input id="seed" type="number" placeholder="Optional">
+                      </div>
+                      <div class="field">
+                        <label for="batchSize">Batch Size</label>
+                        <input id="batchSize" type="number" placeholder="Optional">
+                      </div>
+                    </div>
+
+                    <div class="row-2">
+                      <div class="field">
+                        <label for="width">Width</label>
+                        <input id="width" type="number" placeholder="Optional">
+                      </div>
+                      <div class="field">
+                        <label for="height">Height</label>
+                        <input id="height" type="number" placeholder="Optional">
+                      </div>
+                    </div>
+                  </div>
+                </details>
+              </div>
+
+              <div class="cta-card">
+                <div class="cta-state waiting" id="submitReadiness">Choose a workflow to begin.</div>
+                <div class="microcopy" id="submitNextStep">The studio will tell you exactly what is still missing before you submit.</div>
+                <div class="actions">
+                  <button id="submitBtn">Submit Guided Run</button>
+                  <button id="refreshBtn" class="secondary">Refresh</button>
+                </div>
+                <div class="status-line" id="submitStatus">Ready.</div>
+              </div>
             </div>
           </section>
 
@@ -1269,7 +1533,7 @@
                 <div class="eyebrow">Prompt Stage</div>
                 <h2>Shape the shot, then launch the run.</h2>
                 <p>
-                  This UI is inspired by cinematic AI creation products, but it stays grounded in your actual gateway workflow: same VM, same runs database, same downloads, just a much stronger studio experience.
+                  Write the creative intent here, while the left panel handles workflow guidance, required references, and submission readiness for you.
                 </p>
               </div>
 
@@ -1433,7 +1697,7 @@
             <div class="section-head">
               <div>
                 <div class="section-title">Result Gallery</div>
-                <p>Search, page, inspect, and download saved outputs from completed runs.</p>
+                <p>Search, page, inspect, and review recent completed and failed runs.</p>
               </div>
             </div>
 
@@ -1563,6 +1827,11 @@
       const rememberTokenCheckbox = document.getElementById("rememberToken");
       const workflowSelect = document.getElementById("workflow");
       const workflowCapabilities = document.getElementById("workflowCapabilities");
+      const workflowModeBadge = document.getElementById("workflowModeBadge");
+      const workflowGuideTitle = document.getElementById("workflowGuideTitle");
+      const workflowGuideBody = document.getElementById("workflowGuideBody");
+      const requirementsSummary = document.getElementById("requirementsSummary");
+      const requirementsChecklist = document.getElementById("requirementsChecklist");
       const faceReferenceField = document.getElementById("faceReferenceField");
       const faceReferenceFileRow = document.getElementById("faceReferenceFileRow");
       const faceReferenceUrlRow = document.getElementById("faceReferenceUrlRow");
@@ -1596,6 +1865,8 @@
       const positiveCameraInput = document.getElementById("positiveCamera");
       const negativePromptInput = document.getElementById("negativePrompt");
       const submitBtn = document.getElementById("submitBtn");
+      const submitReadiness = document.getElementById("submitReadiness");
+      const submitNextStep = document.getElementById("submitNextStep");
       const refreshBtn = document.getElementById("refreshBtn");
       const submitStatus = document.getElementById("submitStatus");
       const stats = document.getElementById("stats");
@@ -1725,6 +1996,17 @@
         return `<span class="state ${safe}">${safe}</span>`;
       }
 
+      function isFailedRun(run) {
+        const status = String(run?.status || "").toLowerCase();
+        return status === "error" || status === "failed";
+      }
+
+      function shortErrorText(run) {
+        const raw = String(run?.error_text || "").trim();
+        if (!raw) return "Run failed before any output was saved.";
+        return raw.length > 160 ? `${raw.slice(0, 157)}...` : raw;
+      }
+
       async function getPreviewUrl(downloadUrl) {
         if (state.previewUrls.has(downloadUrl)) return state.previewUrls.get(downloadUrl);
         const blob = await fetchBlob(downloadUrl);
@@ -1756,6 +2038,179 @@
 
       function workflowLocksFaceReference(workflow) {
         return Boolean(workflow?.defaults?.lock_face_reference_to_workflow);
+      }
+
+      function workflowModeSummary(workflow) {
+        if (!workflow) {
+          return {
+            badge: "No workflow selected",
+            title: "Pick a workflow to see how it behaves.",
+            copy: "The studio will explain whether this run is text-first, needs a scene reference, or keeps the face locked from repo config.",
+          };
+        }
+
+        const supportsSceneReference = workflowSupportsSceneReferenceImage(workflow);
+        const supportsFaceReference = workflowSupportsFaceReferenceImage(workflow);
+        const lockFaceReference = workflowLocksFaceReference(workflow);
+
+        if (supportsFaceReference && supportsSceneReference && lockFaceReference) {
+          return {
+            badge: "Locked face + guided scene",
+            title: "Your anchor face is fixed. You only need to guide the scene.",
+            copy: "This workflow keeps identity locked from repository config, so operators should focus on prompt direction and a strong scene reference image.",
+          };
+        }
+        if (supportsFaceReference && supportsSceneReference) {
+          return {
+            badge: "Dual reference workflow",
+            title: "This run needs both identity and scene guidance.",
+            copy: "Upload an anchor face reference to preserve identity and a separate scene reference to steer pose, framing, styling, and location.",
+          };
+        }
+        if (supportsFaceReference && lockFaceReference) {
+          return {
+            badge: "Locked face workflow",
+            title: "The face is already locked by the workflow.",
+            copy: "You do not need to upload a face image here. Focus on prompt writing and any other enabled reference guidance.",
+          };
+        }
+        if (supportsFaceReference) {
+          return {
+            badge: "Face reference workflow",
+            title: "Add an anchor face image before you submit.",
+            copy: "This workflow uses a dedicated face reference to hold identity steady while the prompt shapes styling, composition, and background.",
+          };
+        }
+        if (supportsSceneReference) {
+          return {
+            badge: "Scene guided workflow",
+            title: "Add a scene image to show the style or framing you want.",
+            copy: "This workflow leans on a scene reference more heavily, so the image you upload should represent the pose, environment, or visual mood you want to adapt.",
+          };
+        }
+
+        return {
+          badge: "Text-first workflow",
+          title: "This workflow can run from prompts alone.",
+          copy: "No reference images are required here. Write the shot clearly in the prompt sections and submit when the creative direction feels right.",
+        };
+      }
+
+      function submissionRequirements(workflow) {
+        if (!workflow) {
+          return {
+            items: [],
+            missing: [],
+          };
+        }
+
+        const items = [];
+        const missing = [];
+        const anchorFaceImage = workflow?.defaults?.anchor_face_image || "";
+
+        if (workflowSupportsFaceReferenceImage(workflow)) {
+          if (workflowLocksFaceReference(workflow)) {
+            items.push({
+              state: "locked",
+              title: "Anchor face is locked by the workflow",
+              detail: anchorFaceImage
+                ? `Using repository anchor face asset ${anchorFaceImage}.`
+                : "Using the repository-bound anchor face configuration.",
+            });
+          } else if (state.faceReferenceImageFilename) {
+            items.push({
+              state: "ready",
+              title: "Anchor face reference is attached",
+              detail: `Using uploaded face reference ${state.faceReferenceImageFilename}.`,
+            });
+          } else {
+            items.push({
+              state: "missing",
+              title: "Anchor face reference is still needed",
+              detail: "Upload a clean anchor face photo or fetch one from a public link before submitting.",
+            });
+            missing.push("anchor face reference");
+          }
+        }
+
+        if (workflowSupportsSceneReferenceImage(workflow)) {
+          if (state.referenceImageFilename) {
+            items.push({
+              state: "ready",
+              title: "Scene reference is attached",
+              detail: `Using scene guide ${state.referenceImageFilename}.`,
+            });
+          } else {
+            items.push({
+              state: "missing",
+              title: "Scene reference is still needed",
+              detail: "Upload a scene image or fetch one from a public Instagram post or direct image link before submitting.",
+            });
+            missing.push("scene reference image");
+          }
+        }
+
+        if (!items.length) {
+          items.push({
+            state: "ready",
+            title: "No reference images are required",
+            detail: "This workflow can run with prompt direction only.",
+          });
+        }
+
+        return { items, missing };
+      }
+
+      function updateWorkflowGuide() {
+        const workflow = currentWorkflowDefinition();
+        const summary = workflowModeSummary(workflow);
+        workflowModeBadge.textContent = summary.badge;
+        workflowGuideTitle.textContent = summary.title;
+        workflowGuideBody.textContent = summary.copy;
+      }
+
+      function updateRequirementsUi() {
+        const workflow = currentWorkflowDefinition();
+        const { items, missing } = submissionRequirements(workflow);
+
+        if (!workflow) {
+          requirementsSummary.textContent = "Choose a workflow to see the exact inputs required before submit.";
+          requirementsChecklist.innerHTML = "";
+          submitReadiness.className = "cta-state waiting";
+          submitReadiness.textContent = "Choose a workflow to begin.";
+          submitNextStep.textContent = "The studio will tell you exactly what is still missing before you submit.";
+          submitBtn.disabled = true;
+          submitBtn.textContent = "Submit Guided Run";
+          return;
+        }
+
+        requirementsChecklist.innerHTML = items.map((item) => `
+          <div class="requirement-item ${item.state}">
+            <div class="requirement-dot"></div>
+            <div>
+              <strong>${escapeHtml(item.title)}</strong>
+              <span>${escapeHtml(item.detail)}</span>
+            </div>
+          </div>
+        `).join("");
+
+        if (missing.length) {
+          const label = missing.length === 1 ? missing[0] : `${missing.length} required inputs`;
+          requirementsSummary.textContent = `Before submit, add ${label}.`;
+          submitReadiness.className = "cta-state missing";
+          submitReadiness.textContent = `Missing ${missing.length} required ${missing.length === 1 ? "item" : "items"}.`;
+          submitNextStep.textContent = `Next step: add ${missing.join(" and ")}.`;
+          submitBtn.disabled = true;
+          submitBtn.textContent = missing.includes("scene reference image") ? "Add Scene Reference First" : "Complete Required Inputs";
+          return;
+        }
+
+        requirementsSummary.textContent = "Everything required for this workflow is in place.";
+        submitReadiness.className = "cta-state ready";
+        submitReadiness.textContent = "Ready to submit.";
+        submitNextStep.textContent = "You can launch now, or fine-tune advanced settings first if you want tighter control.";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Submit Guided Run";
       }
 
       function updateReferenceImageUi() {
@@ -1816,6 +2271,8 @@
         if (lockFaceReference) {
           setActionButtonState(fetchFaceReferenceImageBtn, "", "Locked");
         }
+        updateWorkflowGuide();
+        updateRequirementsUi();
       }
 
       function fillFormFromWorkflow(workflowName) {
@@ -1922,6 +2379,8 @@
         } catch (error) {
           workflowSelect.innerHTML = `<option value="">Failed to load workflows</option>`;
           submitStatus.textContent = error.message;
+          updateWorkflowGuide();
+          updateRequirementsUi();
         }
       }
 
@@ -2041,7 +2500,7 @@
           `<div class="status-pill"><strong>${escapeHtml(health.comfyui || "unknown")}</strong> gateway link</div>`,
           `<div class="status-pill"><strong>${running}</strong> running</div>`,
           `<div class="status-pill"><strong>${pending}</strong> pending</div>`,
-          `<div class="status-pill"><strong>${state.completedTotal}</strong> completed</div>`,
+          `<div class="status-pill"><strong>${state.completedTotal}</strong> library</div>`,
           `<div class="status-pill"><strong>${activeCount}</strong> active tracked</div>`,
         ].join("");
 
@@ -2100,19 +2559,20 @@
 
       async function renderCompletedRuns(runs) {
         if (!runs.length) {
-          completedRunsBody.innerHTML = `<div class="empty">No completed runs match this view.</div>`;
+          completedRunsBody.innerHTML = `<div class="empty">No runs match this view.</div>`;
           return;
         }
 
         completedRunsBody.innerHTML = runs.map((run) => {
           const firstOutput = run.outputs && run.outputs.length ? run.outputs[0] : null;
+          const failed = isFailedRun(run);
           const title = firstOutput?.filename || run.workflow_name || "workflow";
           const selected = state.selectedPromptId === run.prompt_id ? "selected" : "";
           const submittedAtIst = formatIstDateTime(run.submitted_at || "");
           return `
             <article class="run-card ${selected}" data-detail="${run.prompt_id}">
-              <div class="run-preview" data-preview="${firstOutput ? firstOutput.download_url : ""}">
-                <div class="fallback">Loading preview...</div>
+              <div class="run-preview ${failed ? "failed" : ""}" data-preview="${firstOutput ? firstOutput.download_url : ""}" data-status="${escapeHtml(run.status || "")}" data-error-text="${escapeHtml(run.error_text || "")}">
+                <div class="fallback">${failed ? "Loading failure state..." : "Loading preview..."}</div>
                 <div class="run-overlay">
                   ${statusBadge(run.status)}
                   <div class="run-overlay-actions">
@@ -2134,11 +2594,12 @@
                   <div class="meta-pill">${escapeHtml((run.outputs || []).length)} output${(run.outputs || []).length === 1 ? "" : "s"}</div>
                 </div>
                 <div class="code">${escapeHtml(run.prompt_id)}</div>
+                ${failed ? `<div class="error-note">${escapeHtml(shortErrorText(run))}</div>` : ""}
                 <div class="run-actions">
                   <div class="download-links">
                     ${(run.outputs || []).slice(0, 2).map((output, index) =>
                       `<button class="linkish" type="button" data-download="${output.download_url}" data-stop="1">${escapeHtml(output.filename || `output-${index + 1}`)}</button>`
-                    ).join("") || '<span class="empty">No outputs</span>'}
+                    ).join("") || `<span class="empty">${failed ? "Run failed before outputs were saved" : "No outputs"}</span>`}
                   </div>
                   <button class="ghost run-delete" type="button" data-detail-open="${run.prompt_id}" data-stop="1">View Details</button>
                 </div>
@@ -2185,8 +2646,14 @@
         const previews = [...document.querySelectorAll("[data-preview]")];
         for (const preview of previews) {
           const downloadUrl = preview.getAttribute("data-preview");
+          const status = String(preview.getAttribute("data-status") || "").toLowerCase();
+          const errorText = preview.getAttribute("data-error-text") || "";
           if (!downloadUrl) {
-            preview.innerHTML = `<div class="fallback">No preview</div>`;
+            if (status === "error" || status === "failed") {
+              preview.innerHTML = `<div class="fallback failed"><div><strong>Run failed</strong><span>${escapeHtml(errorText || "No output was saved for this failed run.")}</span></div></div>`;
+            } else {
+              preview.innerHTML = `<div class="fallback">No preview</div>`;
+            }
             continue;
           }
           try {
@@ -2289,6 +2756,7 @@
 
         const run = state.detailRun;
         const firstOutput = run.outputs && run.outputs.length ? run.outputs[0] : null;
+        const failed = isFailedRun(run);
         let previewHtml = `<div class="drawer-placeholder">No preview available.</div>`;
 
         if (firstOutput) {
@@ -2298,6 +2766,8 @@
           } catch (_error) {
             previewHtml = `<div class="drawer-placeholder">Preview fetch failed.</div>`;
           }
+        } else if (failed) {
+          previewHtml = `<div class="drawer-placeholder">Run failed: ${escapeHtml(shortErrorText(run))}</div>`;
         }
 
         detailPane.innerHTML = `
@@ -2320,6 +2790,8 @@
             <div class="meta-value">${escapeHtml(run.submitted_at || "")}</div>
             <div class="meta-label">Completed</div>
             <div class="meta-value">${escapeHtml(run.completed_at || "")}</div>
+            <div class="meta-label">Error</div>
+            <div class="meta-value code">${escapeHtml(run.error_text || "") || "None"}</div>
             <div class="meta-label">Overrides</div>
             <div class="meta-value code">${escapeHtml(compactJson(run.overrides))}</div>
           </div>

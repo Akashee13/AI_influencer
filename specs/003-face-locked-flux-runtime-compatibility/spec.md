@@ -13,17 +13,19 @@ Source QA reports:
 
 - `docs/gap-finding/20260505_194255_mumbai-yoga-anchor-faceid-v1.json_b55a20dc/report.md`
 - `docs/gap-finding/20260505_195523_mumbai-yoga-anchor-faceid-v1.json_966f71ee/report.md`
+- `docs/gap-finding/20260505_200629_mumbai-yoga-anchor-faceid-v1.json_24c325d3/report.md`
 
 ## Problem Statement
 
-Two consecutive default QA passes proved that workflow selection, scene-reference upload, and gateway submission all work, but the face-locked FLUX workflow still fails before producing an image. Both runs reached `SamplerCustomAdvanced` and crashed with `TypeError: forward_orig() got an unexpected keyword argument 'timestep_zero_index'`.
+Three consecutive default QA passes proved that workflow selection, scene-reference upload, and gateway submission all work, but the face-locked FLUX workflow still fails before producing an image. All three runs reached `SamplerCustomAdvanced` and crashed with `TypeError: forward_orig() got an unexpected keyword argument 'timestep_zero_index'`.
 
-This leaves the system in a misleading state:
+The first two runs also showed a gateway/reporting defect, while the third run confirmed the repo-side reporting fix:
 
 - the operator can start a default QA pass successfully
-- the gateway marks the run as completed from its perspective
+- the live runtime still fails before image generation
 - no image is generated or downloadable
-- the QA process cannot evaluate anchor retention, scene adaptation, wardrobe adaptation, or realism
+- the QA process still cannot evaluate anchor retention, scene adaptation, wardrobe adaptation, or realism
+- the latest run is now surfaced truthfully as `status: error` with `error_text`, which closes the failure-transparency sub-gap even though the runtime mismatch remains
 
 Existing specs cover workflow governance and the QA harness flow, but they do not yet require runtime compatibility checks or operator-visible handling for this class of ComfyUI stack mismatch.
 
@@ -105,6 +107,12 @@ If a runtime mismatch still occurs, the gateway or QA path MUST expose it clearl
 - request-submission success
 - execution failure before image generation
 - missing output artifact capture
+
+The latest default QA pass MUST be treated as evidence that this transparency behavior is now working when:
+
+- the run is recorded with `status: error`
+- `error_text` contains the terminal exception
+- the QA report preserves the failure details instead of masking the run as completed
 
 ### FR-5 Non-regression validation
 

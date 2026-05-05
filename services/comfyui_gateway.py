@@ -17,6 +17,7 @@ from __future__ import annotations
 import base64
 import html
 import json
+import logging
 import os
 import random
 import re
@@ -60,10 +61,39 @@ REMOTE_IMAGE_HEADERS = {
 REMOTE_PAGE_HEADERS = {
     "User-Agent": "Mozilla/5.0",
 }
+LOG_LEVEL = os.environ.get("COMFYUI_GATEWAY_LOG_LEVEL", "INFO").upper()
+LOGGER = logging.getLogger("comfyui_gateway")
 
 
 class WorkflowError(RuntimeError):
     pass
+
+
+def configure_logging() -> None:
+    if logging.getLogger().handlers:
+        logging.getLogger().setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
+    else:
+        logging.basicConfig(
+            level=getattr(logging, LOG_LEVEL, logging.INFO),
+            format="%(asctime)s %(levelname)s %(name)s %(message)s",
+        )
+
+
+def compact_json(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def summarize_overrides(overrides: dict[str, Any]) -> dict[str, Any]:
+    summary: dict[str, Any] = {}
+    for key in sorted(overrides):
+        value = overrides[key]
+        if key in {"positive_prompt", "negative_prompt"} and isinstance(value, str):
+            summary[key] = {"length": len(value)}
+        elif key == "positive_prompt_sections" and isinstance(value, dict):
+            summary[key] = {section: len(str(text or "")) for section, text in value.items()}
+        else:
+            summary[key] = value
+    return summary
 
 
 def utc_now() -> str:
@@ -326,9 +356,17 @@ def history_terminal_state(history: dict[str, Any], prompt_id: str) -> tuple[str
         payload = message[1] if isinstance(message[1], dict) else {}
         if event_name == "execution_error":
             error_text = str(payload.get("exception_message", "")).strip() or None
+            LOGGER.error(
+                "terminal execution error prompt_id=%s node_id=%s node_type=%s error=%s",
+                prompt_id,
+                payload.get("node_id"),
+                payload.get("node_type"),
+                error_text or "unknown",
+            )
             return "error", error_text
 
     if status_str in {"error", "failed"}:
+        LOGGER.error("terminal status from history prompt_id=%s status=%s", prompt_id, status_str)
         return status_str, None
 
     completed_flag = status.get("completed")
@@ -579,6 +617,12 @@ def save_reference_image(filename: str, content_b64: str) -> str:
         raise WorkflowError("empty reference image payload")
     destination = COMFYUI_INPUT_DIR / safe_name
     destination.write_bytes(raw)
+    LOGGER.info(
+        "saved reference image upload filename=%s bytes=%s destination=%s",
+        safe_name,
+        len(raw),
+        destination,
+    )
     return safe_name
 
 
@@ -629,6 +673,7 @@ def save_reference_image_from_url(source_url: str) -> str:
     target_url = source_url
 
     if not direct_image:
+        LOGGER.info("fetching reference page source_url=%s", source_url)
         req = request.Request(source_url, headers=REMOTE_PAGE_HEADERS)
         with request.urlopen(req, timeout=30) as resp:
             content_type = resp.headers.get("Content-Type", "")
@@ -641,6 +686,13 @@ def save_reference_image_from_url(source_url: str) -> str:
                 COMFYUI_INPUT_DIR.mkdir(parents=True, exist_ok=True)
                 destination = COMFYUI_INPUT_DIR / filename
                 destination.write_bytes(data)
+                LOGGER.info(
+                    "saved reference image from page response source_url=%s filename=%s bytes=%s destination=%s",
+                    source_url,
+                    filename,
+                    len(data),
+                    destination,
+                )
                 return filename
             body = resp.read(1024 * 1024).decode("utf-8", errors="replace")
             preview_url = extract_preview_image_url(body)
@@ -656,6 +708,14 @@ def save_reference_image_from_url(source_url: str) -> str:
     COMFYUI_INPUT_DIR.mkdir(parents=True, exist_ok=True)
     destination = COMFYUI_INPUT_DIR / filename
     destination.write_bytes(data)
+    LOGGER.info(
+        "saved reference image from url source_url=%s resolved_url=%s filename=%s bytes=%s destination=%s",
+        source_url,
+        target_url,
+        filename,
+        len(data),
+        destination,
+    )
     return filename
 
 
@@ -733,6 +793,19 @@ def ensure_input_asset(target_filename: str, source_relative_path: str) -> str:
     destination = COMFYUI_INPUT_DIR / target_filename
     if not destination.exists() or source_path.stat().st_mtime > destination.stat().st_mtime:
         destination.write_bytes(source_path.read_bytes())
+        LOGGER.info(
+            "copied workflow input asset target_filename=%s source=%s destination=%s",
+            target_filename,
+            source_path,
+            destination,
+        )
+    else:
+        LOGGER.debug(
+            "workflow input asset already up to date target_filename=%s source=%s destination=%s",
+            target_filename,
+            source_path,
+            destination,
+        )
     return target_filename
 
 
@@ -1225,6 +1298,12 @@ def ui_workflow_to_api_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
         else:
             raise WorkflowError(f"Unsupported node type in locked workflow: {node_type}")
 
+    LOGGER.debug(
+        "built api prompt workflow=%s node_count=%s node_types=%s",
+        workflow_name(workflow) or "unknown",
+        len(api_prompt),
+        compact_json(sorted({node.get("class_type") for node in api_prompt.values() if isinstance(node, dict)})),
+    )
     return api_prompt
 
 
@@ -1243,6 +1322,16 @@ def apply_overrides(workflow: dict[str, Any], overrides: dict[str, Any]) -> None
     input_roles = workflow_input_roles(workflow)
     locked_anchor_face_image = workflow_anchor_face_image(workflow)
     locked_anchor_face_source = workflow_anchor_face_source(workflow)
+    assignment_log: list[dict[str, Any]] = []
+
+    LOGGER.info(
+        "applying overrides workflow=%s overrides=%s input_roles=%s locked_anchor_face_image=%s locked_anchor_face_source=%s",
+        workflow_name(workflow) or "unknown",
+        compact_json(summarize_overrides(overrides)),
+        compact_json(input_roles),
+        locked_anchor_face_image or "",
+        locked_anchor_face_source or "",
+    )
 
     merged_positive_prompt = overrides.get("positive_prompt")
     if not merged_positive_prompt and "positive_prompt_sections" in overrides:
@@ -1309,12 +1398,14 @@ def apply_overrides(workflow: dict[str, Any], overrides: dict[str, Any]) -> None
         node_ids = input_roles.get(role_key, [])
         if not node_ids and role_key == "scene_reference_image" and load_image_nodes:
             load_image_nodes[0]["widgets_values"][0] = filename
+            assignment_log.append({"role": role_key, "filename": filename, "node_ids": [load_image_nodes[0].get("id")], "fallback": True})
             return True
         assigned = False
         for node_id in node_ids:
             node = nodes_by_id.get(int(node_id))
             if node and node.get("type") == "LoadImage":
                 node["widgets_values"][0] = filename
+                assignment_log.append({"role": role_key, "filename": filename, "node_ids": [node_id], "fallback": False})
                 assigned = True
         return assigned
 
@@ -1330,18 +1421,32 @@ def apply_overrides(workflow: dict[str, Any], overrides: dict[str, Any]) -> None
     elif "face_reference_image" in overrides:
         assign_load_image("face_reference_image", overrides["face_reference_image"])
 
+    LOGGER.info(
+        "applied overrides workflow=%s filename_prefix=%s assignments=%s sampler_nodes=%s random_noise_nodes=%s scheduler_nodes=%s flux_guidance_nodes=%s",
+        workflow_name(workflow) or "unknown",
+        overrides.get("filename_prefix"),
+        compact_json(assignment_log),
+        len(ksampler_nodes),
+        len(random_noise_nodes),
+        len(scheduler_nodes),
+        len(flux_guidance_nodes),
+    )
+
 
 def wait_for_history(prompt_id: str, timeout_s: int) -> dict[str, Any]:
     deadline = time.time() + timeout_s
     url = f"{COMFYUI_URL.rstrip('/')}/history/{prompt_id}"
+    poll_count = 0
     while time.time() < deadline:
         try:
             history = api_get(url)
             if history:
+                LOGGER.info("history available prompt_id=%s polls=%s", prompt_id, poll_count)
                 return history
         except error.HTTPError as exc:
             if exc.code != 404:
                 raise
+        poll_count += 1
         time.sleep(2)
     raise TimeoutError(f"Timed out waiting for prompt {prompt_id}")
 
@@ -1639,7 +1744,14 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(HTTPStatus.BAD_REQUEST, {"error": "missing prompt_id"})
                 return
             try:
-                self._send_json(HTTPStatus.OK, sync_run_status(prompt_id))
+                status_payload = sync_run_status(prompt_id)
+                LOGGER.info(
+                    "status request prompt_id=%s status=%s error_text=%s",
+                    prompt_id,
+                    status_payload.get("status"),
+                    status_payload.get("error_text"),
+                )
+                self._send_json(HTTPStatus.OK, status_payload)
             except Exception as exc:
                 self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
             return
@@ -1765,6 +1877,13 @@ class Handler(BaseHTTPRequestHandler):
             workflow.setdefault("extra", {})
             if isinstance(workflow["extra"], dict):
                 workflow["extra"]["workflow_name"] = workflow_name
+            LOGGER.info(
+                "generate request workflow=%s wait=%s timeout_s=%s overrides=%s",
+                workflow_name,
+                wait,
+                timeout_s,
+                compact_json(summarize_overrides(overrides if isinstance(overrides, dict) else {})),
+            )
             apply_overrides(workflow, overrides)
             prompt = ui_workflow_to_api_prompt(workflow)
             client_id = str(uuid.uuid4())
@@ -1775,6 +1894,13 @@ class Handler(BaseHTTPRequestHandler):
             prompt_id = response.get("prompt_id")
             if not prompt_id:
                 raise RuntimeError("ComfyUI did not return a prompt_id")
+            LOGGER.info(
+                "submitted prompt workflow=%s prompt_id=%s client_id=%s response=%s",
+                workflow_name,
+                prompt_id,
+                client_id,
+                compact_json(response),
+            )
             raw_request = {"prompt": prompt, "client_id": client_id}
             record_run_submission(
                 prompt_id=prompt_id,
@@ -1799,8 +1925,17 @@ class Handler(BaseHTTPRequestHandler):
                 result["history"] = history
                 if error_text:
                     result["error_text"] = error_text
+                LOGGER.info(
+                    "wait complete workflow=%s prompt_id=%s status=%s error_text=%s outputs=%s",
+                    workflow_name,
+                    result["prompt_id"],
+                    terminal_status,
+                    error_text,
+                    len(extract_outputs_from_history(history, result["prompt_id"])),
+                )
             self._send_json(HTTPStatus.OK, result)
         except Exception as exc:
+            LOGGER.exception("generate request failed workflow=%s", workflow_name)
             self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
 
     def do_DELETE(self) -> None:  # noqa: N802
@@ -1831,9 +1966,16 @@ def main() -> None:
         raise SystemExit(f"workflow directory not found: {WORKFLOW_DIR}")
     if not DASHBOARD_PATH.exists():
         raise SystemExit(f"dashboard not found: {DASHBOARD_PATH}")
+    configure_logging()
     ensure_db()
     server = ThreadingHTTPServer((HOST, PORT), Handler)
-    print(f"ComfyUI gateway listening on http://{HOST}:{PORT}")
+    LOGGER.info(
+        "ComfyUI gateway listening host=%s port=%s comfyui_url=%s workflow_dir=%s",
+        HOST,
+        PORT,
+        COMFYUI_URL,
+        WORKFLOW_DIR,
+    )
     server.serve_forever()
 
 

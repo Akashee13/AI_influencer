@@ -91,6 +91,8 @@ Repo-level checks:
 - [run.json](/Users/akash/Documents/PetProjects/AI Influencer/docs/gap-finding/20260505_194255_mumbai-yoga-anchor-faceid-v1.json_b55a20dc/run.json)
 - [report.md](/Users/akash/Documents/PetProjects/AI Influencer/docs/gap-finding/20260505_195523_mumbai-yoga-anchor-faceid-v1.json_966f71ee/report.md)
 - [run.json](/Users/akash/Documents/PetProjects/AI Influencer/docs/gap-finding/20260505_195523_mumbai-yoga-anchor-faceid-v1.json_966f71ee/run.json)
+- [report.md](/Users/akash/Documents/PetProjects/AI Influencer/docs/gap-finding/20260505_200629_mumbai-yoga-anchor-faceid-v1.json_24c325d3/report.md)
+- [run.json](/Users/akash/Documents/PetProjects/AI Influencer/docs/gap-finding/20260505_200629_mumbai-yoga-anchor-faceid-v1.json_24c325d3/run.json)
 - [mumbai-yoga-anchor-faceid-v1.json](/Users/akash/Documents/PetProjects/AI Influencer/comfyui/workflows/mumbai-yoga-anchor-faceid-v1.json)
 - [workflow_bindings.json](/Users/akash/Documents/PetProjects/AI Influencer/comfyui/workflow_bindings.json)
 - [comfyui_gateway.py](/Users/akash/Documents/PetProjects/AI Influencer/services/comfyui_gateway.py)
@@ -100,6 +102,7 @@ Repo-level checks:
 
 1. Reproduce the QA gap.
 2. Identify whether the minimal viable fix belongs in workflow JSON, runtime version alignment, or gateway reporting.
-3. Implement the fix after spec approval.
-4. Re-run the same default QA path through the harness.
-5. Confirm output capture and one older workflow non-regression path.
+3. Implement the repo-local failure-transparency fixes and confirm the next QA run reports `error` truthfully.
+4. Implement the runtime/path fix after deployment access or runtime alignment is available.
+5. Re-run the same default QA path through the harness.
+6. Confirm output capture and one older workflow non-regression path.

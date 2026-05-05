@@ -4,6 +4,7 @@
 
 - `docs/gap-finding/20260505_194255_mumbai-yoga-anchor-faceid-v1.json_b55a20dc/report.md`
 - `docs/gap-finding/20260505_195523_mumbai-yoga-anchor-faceid-v1.json_966f71ee/report.md`
+- `docs/gap-finding/20260505_200629_mumbai-yoga-anchor-faceid-v1.json_24c325d3/report.md`
 
 ## Goal
 
@@ -21,6 +22,7 @@ Use this checklist to reproduce the runtime compatibility gap and verify that th
 2. Review the saved run metadata in both:
    - `docs/gap-finding/20260505_194255_mumbai-yoga-anchor-faceid-v1.json_b55a20dc/run.json`
    - `docs/gap-finding/20260505_195523_mumbai-yoga-anchor-faceid-v1.json_966f71ee/run.json`
+   - `docs/gap-finding/20260505_200629_mumbai-yoga-anchor-faceid-v1.json_24c325d3/run.json`
 3. Re-run the default QA pass:
 
 ```bash
@@ -37,6 +39,7 @@ Expected pre-fix behavior:
 - the failure includes `forward_orig() got an unexpected keyword argument 'timestep_zero_index'`
 - no output image is available for real QA review
 - the same failure reproduces on consecutive default reruns
+- the latest rerun is surfaced explicitly as `status: error` with `error_text`
 
 ## Validation
 
