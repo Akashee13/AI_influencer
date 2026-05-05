@@ -21,6 +21,9 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_WORKFLOW = ROOT / "comfyui" / "workflows" / "mumbai-yoga-anchor-v1.json"
+COMFYUI_INPUT_DIR = Path(
+    Path.home() / "comfy" / "input"
+)
 
 
 class WorkflowError(RuntimeError):
@@ -91,6 +94,27 @@ def workflow_input_roles(workflow: dict[str, Any]) -> dict[str, list[int]]:
             if resolved:
                 roles[str(key)] = resolved
     return roles
+
+
+def workflow_anchor_face_image(workflow: dict[str, Any]) -> str:
+    value = workflow_extra(workflow).get("anchor_face_image", "")
+    return str(value).strip() if value else ""
+
+
+def workflow_anchor_face_source(workflow: dict[str, Any]) -> str:
+    value = workflow_extra(workflow).get("anchor_face_source", "")
+    return str(value).strip() if value else ""
+
+
+def ensure_input_asset(target_filename: str, source_relative_path: str) -> str:
+    source_path = (ROOT / source_relative_path).resolve()
+    if not source_path.exists() or not source_path.is_file():
+        raise WorkflowError(f"workflow anchor face source not found: {source_path}")
+    COMFYUI_INPUT_DIR.mkdir(parents=True, exist_ok=True)
+    destination = COMFYUI_INPUT_DIR / target_filename
+    if not destination.exists() or source_path.stat().st_mtime > destination.stat().st_mtime:
+        destination.write_bytes(source_path.read_bytes())
+    return target_filename
 
 
 def resolve_prompt_nodes(workflow: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -329,6 +353,8 @@ def apply_overrides(
     load_image_nodes = find_nodes_by_type(workflow, "LoadImage")
     nodes_by_id = node_map(workflow)
     input_roles = workflow_input_roles(workflow)
+    locked_anchor_face_image = workflow_anchor_face_image(workflow)
+    locked_anchor_face_source = workflow_anchor_face_source(workflow)
 
     if positive_prompt is not None:
         positive_node["widgets_values"][0] = positive_prompt
@@ -392,7 +418,12 @@ def apply_overrides(
                 assigned = True
         return assigned
 
-    assign_load_image("face_reference_image", face_reference_image)
+    if locked_anchor_face_image:
+        if locked_anchor_face_source:
+            ensure_input_asset(locked_anchor_face_image, locked_anchor_face_source)
+        assign_load_image("face_reference_image", locked_anchor_face_image)
+    else:
+        assign_load_image("face_reference_image", face_reference_image)
     assign_load_image("scene_reference_image", scene_reference_image)
 
 
