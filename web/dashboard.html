@@ -1185,13 +1185,13 @@
                 </div>
               </div>
 
-              <div class="field">
+              <div class="field" id="sceneReferenceField">
                 <label for="referenceImage">Scene Reference Image</label>
-                <div class="file-row">
+                <div class="file-row" id="sceneReferenceFileRow">
                   <input id="referenceImage" type="file" accept="image/png,image/jpeg,image/webp">
                   <button id="clearReferenceImageBtn" class="ghost" type="button">Clear</button>
                 </div>
-                <div class="file-row" style="margin-top:10px;">
+                <div class="file-row" id="sceneReferenceUrlRow" style="margin-top:10px;">
                   <input id="referenceImageUrl" type="url" placeholder="Paste public Instagram post or direct image URL">
                   <button id="fetchReferenceImageBtn" class="secondary" type="button">Fetch Link</button>
                 </div>
@@ -1566,6 +1566,9 @@
       const faceReferenceField = document.getElementById("faceReferenceField");
       const faceReferenceFileRow = document.getElementById("faceReferenceFileRow");
       const faceReferenceUrlRow = document.getElementById("faceReferenceUrlRow");
+      const sceneReferenceField = document.getElementById("sceneReferenceField");
+      const sceneReferenceFileRow = document.getElementById("sceneReferenceFileRow");
+      const sceneReferenceUrlRow = document.getElementById("sceneReferenceUrlRow");
       const faceReferenceImageInput = document.getElementById("faceReferenceImage");
       const faceReferenceImageUrlInput = document.getElementById("faceReferenceImageUrl");
       const fetchFaceReferenceImageBtn = document.getElementById("fetchFaceReferenceImageBtn");
@@ -1761,7 +1764,9 @@
         const supportsFaceReference = workflowSupportsFaceReferenceImage(workflow);
         const lockFaceReference = workflowLocksFaceReference(workflow);
         const anchorFaceImage = workflow?.defaults?.anchor_face_image || "";
-        workflowCapabilities.textContent = supportsFaceReference && supportsSceneReference
+        workflowCapabilities.textContent = supportsFaceReference && supportsSceneReference && lockFaceReference
+          ? "This workflow keeps the anchor face fixed from repo config and lets you edit only the scene inspiration image."
+          : supportsFaceReference && supportsSceneReference
           ? "This workflow supports both an anchor face reference and a separate scene reference."
           : supportsFaceReference && lockFaceReference
           ? "This workflow keeps the anchor face locked to the workflow itself. Uploaded images should be treated as inspiration only."
@@ -1777,8 +1782,11 @@
         clearFaceReferenceImageBtn.disabled = !supportsFaceReference || lockFaceReference || !state.faceReferenceImageFilename;
         faceReferenceFileRow.hidden = lockFaceReference;
         faceReferenceUrlRow.hidden = lockFaceReference;
+        faceReferenceField.querySelector("label").textContent = lockFaceReference
+          ? "Workflow Anchor Face"
+          : "Anchor Face Reference";
         faceReferenceImageHint.textContent = supportsFaceReference && lockFaceReference
-          ? "This workflow uses the repo-bound anchor face configuration. It will always use that face reference and ignore user replacements."
+          ? "This workflow uses the repo-bound anchor face configuration from the repository. User face uploads are disabled for this workflow."
           : supportsFaceReference
           ? "Upload a clean anchor face photo, or fetch one from a public link, to lock face identity for this workflow."
           : "Pick a workflow with face identity support to enable anchor face upload.";
@@ -1788,9 +1796,14 @@
         referenceImageInput.disabled = !supportsSceneReference;
         referenceImageUrlInput.disabled = !supportsSceneReference;
         fetchReferenceImageBtn.disabled = !supportsSceneReference;
-        clearReferenceImageBtn.disabled = !supportsSceneReference && !state.referenceImageFilename;
+        clearReferenceImageBtn.disabled = !supportsSceneReference || !state.referenceImageFilename;
+        sceneReferenceFileRow.hidden = !supportsSceneReference;
+        sceneReferenceUrlRow.hidden = !supportsSceneReference;
+        sceneReferenceField.querySelector("label").textContent = supportsSceneReference
+          ? "Scene Reference Image"
+          : "Scene Reference Image";
         referenceImageHint.textContent = supportsSceneReference
-          ? "Upload a still image, or paste a public Instagram post link to steer pose and composition for this workflow."
+          ? "Upload a still image, or paste a public Instagram post link to steer style, framing, and scene inspiration for this workflow."
           : "Pick a workflow with scene guidance to enable scene reference upload.";
         referenceImageChip.hidden = !state.referenceImageFilename;
         referenceImageName.textContent = state.referenceImageFilename || "None";
