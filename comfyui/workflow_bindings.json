@@ -1,0 +1,7 @@
+{
+  "mumbai-yoga-anchor-faceid-v1.json": {
+    "anchor_face_image": "CompyUI_00016_.png",
+    "anchor_face_source": "pictures/CompyUI_00016_.png",
+    "lock_face_reference_to_workflow": true
+  }
+}

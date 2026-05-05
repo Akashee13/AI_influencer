@@ -34,6 +34,7 @@ from urllib import error, request
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_WORKFLOW = ROOT / "comfyui" / "workflows" / "mumbai-yoga-anchor-v1.json"
+WORKFLOW_BINDINGS_PATH = ROOT / "comfyui" / "workflow_bindings.json"
 WEB_DIR = ROOT / "web"
 DASHBOARD_PATH = WEB_DIR / "dashboard.html"
 COMFYUI_URL = os.environ.get("COMFYUI_URL", "http://127.0.0.1:8188")
@@ -515,6 +516,16 @@ def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text())
 
 
+def load_workflow_bindings() -> dict[str, Any]:
+    if not WORKFLOW_BINDINGS_PATH.exists():
+        return {}
+    try:
+        data = load_json(WORKFLOW_BINDINGS_PATH)
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def sanitize_reference_filename(filename: str) -> str:
     cleaned = Path(filename).name.strip().replace(" ", "_")
     if not cleaned:
@@ -627,6 +638,19 @@ def workflow_extra(workflow: dict[str, Any]) -> dict[str, Any]:
     return extra if isinstance(extra, dict) else {}
 
 
+def workflow_name(workflow: dict[str, Any]) -> str:
+    extra = workflow_extra(workflow)
+    name = extra.get("workflow_name", "")
+    return str(name).strip() if name else ""
+
+
+def workflow_binding_for(workflow: dict[str, Any]) -> dict[str, Any]:
+    bindings = load_workflow_bindings()
+    name = workflow_name(workflow)
+    value = bindings.get(name, {})
+    return value if isinstance(value, dict) else {}
+
+
 def workflow_input_roles(workflow: dict[str, Any]) -> dict[str, list[int]]:
     extra = workflow_extra(workflow)
     raw_roles = extra.get("input_roles", {})
@@ -645,15 +669,28 @@ def workflow_input_roles(workflow: dict[str, Any]) -> dict[str, list[int]]:
 
 
 def workflow_anchor_face_image(workflow: dict[str, Any]) -> str:
+    binding = workflow_binding_for(workflow)
+    if binding.get("anchor_face_image"):
+        return str(binding.get("anchor_face_image")).strip()
     extra = workflow_extra(workflow)
     value = extra.get("anchor_face_image", "")
     return str(value).strip() if value else ""
 
 
 def workflow_anchor_face_source(workflow: dict[str, Any]) -> str:
+    binding = workflow_binding_for(workflow)
+    if binding.get("anchor_face_source"):
+        return str(binding.get("anchor_face_source")).strip()
     extra = workflow_extra(workflow)
     value = extra.get("anchor_face_source", "")
     return str(value).strip() if value else ""
+
+
+def workflow_lock_face_reference(workflow: dict[str, Any], supports_face_reference: bool) -> bool:
+    binding = workflow_binding_for(workflow)
+    if "lock_face_reference_to_workflow" in binding:
+        return bool(binding.get("lock_face_reference_to_workflow")) and supports_face_reference
+    return bool(workflow_anchor_face_image(workflow) and supports_face_reference)
 
 
 def ensure_input_asset(target_filename: str, source_relative_path: str) -> str:
@@ -684,6 +721,9 @@ def workflow_prompt_section_defaults(workflow: dict[str, Any], positive_prompt: 
 
 def workflow_defaults(path: Path) -> dict[str, Any]:
     workflow = load_json(path)
+    workflow.setdefault("extra", {})
+    if isinstance(workflow["extra"], dict):
+        workflow["extra"]["workflow_name"] = path.name
     nodes_by_type = {node["type"]: node for node in workflow.get("nodes", [])}
     extra = workflow_extra(workflow)
     ui_defaults = extra.get("ui_defaults", {}) if isinstance(extra.get("ui_defaults", {}), dict) else {}
@@ -714,7 +754,7 @@ def workflow_defaults(path: Path) -> dict[str, Any]:
     supports_scene_reference = bool(input_roles.get("scene_reference_image"))
     anchor_face_image = workflow_anchor_face_image(workflow)
     anchor_face_source = workflow_anchor_face_source(workflow)
-    lock_face_reference_to_workflow = bool(anchor_face_image and supports_face_reference)
+    lock_face_reference_to_workflow = workflow_lock_face_reference(workflow, supports_face_reference)
     if load_image and not (supports_face_reference or supports_scene_reference):
         supports_scene_reference = True
 
@@ -1683,6 +1723,9 @@ class Handler(BaseHTTPRequestHandler):
 
         try:
             workflow = load_json(workflow_path)
+            workflow.setdefault("extra", {})
+            if isinstance(workflow["extra"], dict):
+                workflow["extra"]["workflow_name"] = workflow_name
             apply_overrides(workflow, overrides)
             prompt = ui_workflow_to_api_prompt(workflow)
             client_id = str(uuid.uuid4())

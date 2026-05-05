@@ -1,6 +1,6 @@
 {
-  "last_node_id": 64,
-  "last_link_id": 132,
+  "last_node_id": 66,
+  "last_link_id": 135,
   "nodes": [
     {
       "id": 25,
@@ -272,9 +272,91 @@
         "Node name for S&R": "LoadImage"
       },
       "widgets_values": [
-        "anchor_face_placeholder.png",
+        "CompyUI_00016_.png",
         "image"
       ]
+    },
+    {
+      "id": 65,
+      "type": "LoadImage",
+      "pos": {
+        "0": 724,
+        "1": -95
+      },
+      "size": {
+        "0": 315,
+        "1": 314
+      },
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            133
+          ],
+          "slot_index": 0,
+          "shape": 3
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null,
+          "shape": 3
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "scene_reference_placeholder.png",
+        "image"
+      ]
+    },
+    {
+      "id": 66,
+      "type": "VAEEncode",
+      "pos": {
+        "0": 1049,
+        "1": 35
+      },
+      "size": {
+        "0": 210,
+        "1": 82
+      },
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "pixels",
+          "type": "IMAGE",
+          "link": 133
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 134
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            135
+          ],
+          "slot_index": 0,
+          "shape": 3
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEEncode"
+      },
+      "widgets_values": []
     },
     {
       "id": 53,
@@ -288,7 +370,7 @@
         "1": 58
       },
       "flags": {},
-      "order": 4,
+      "order": 9,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -321,7 +403,7 @@
         "1": 26
       },
       "flags": {},
-      "order": 5,
+      "order": 10,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -351,7 +433,7 @@
         "1": 58
       },
       "flags": {},
-      "order": 6,
+      "order": 11,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -384,7 +466,7 @@
         "1": 206
       },
       "flags": {},
-      "order": 10,
+      "order": 15,
       "mode": 0,
       "inputs": [
         {
@@ -450,7 +532,7 @@
         "1": 46
       },
       "flags": {},
-      "order": 14,
+      "order": 16,
       "mode": 0,
       "inputs": [
         {
@@ -491,7 +573,7 @@
         "1": 326
       },
       "flags": {},
-      "order": 15,
+      "order": 17,
       "mode": 0,
       "inputs": [
         {
@@ -517,7 +599,7 @@
         {
           "name": "latent_image",
           "type": "LATENT",
-          "link": 86
+          "link": 135
         }
       ],
       "outputs": [
@@ -553,7 +635,7 @@
         "1": 46
       },
       "flags": {},
-      "order": 16,
+      "order": 18,
       "mode": 0,
       "inputs": [
         {
@@ -594,7 +676,7 @@
         "1": 698.3060302734375
       },
       "flags": {},
-      "order": 17,
+      "order": 19,
       "mode": 0,
       "inputs": [
         {
@@ -621,7 +703,7 @@
         "1": 82
       },
       "flags": {},
-      "order": 7,
+      "order": 12,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -656,7 +738,7 @@
         "1": 60.429901123046875
       },
       "flags": {},
-      "order": 8,
+      "order": 13,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -689,7 +771,7 @@
         "1": 106
       },
       "flags": {},
-      "order": 9,
+      "order": 14,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -843,6 +925,30 @@
       "MODEL"
     ],
     [
+      133,
+      65,
+      0,
+      66,
+      0,
+      "IMAGE"
+    ],
+    [
+      134,
+      10,
+      0,
+      66,
+      1,
+      "VAE"
+    ],
+    [
+      135,
+      66,
+      0,
+      48,
+      4,
+      "LATENT"
+    ],
+    [
       131,
       63,
       0,
@@ -864,11 +970,12 @@
   "extra": {
     "frontendVersion": "1.42.15",
     "workflow_mode": "face_id",
-    "anchor_face_image": "CompyUI_00016_.png",
-    "anchor_face_source": "pictures/CompyUI_00016_.png",
     "input_roles": {
       "face_reference_image": [
         54
+      ],
+      "scene_reference_image": [
+        65
       ]
     },
     "ui_defaults": {

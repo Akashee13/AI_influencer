@@ -1166,13 +1166,13 @@
                 <div class="field-help" id="workflowCapabilities">Loading workflow capabilities...</div>
               </div>
 
-              <div class="field">
+              <div class="field" id="faceReferenceField">
                 <label for="faceReferenceImage">Anchor Face Reference</label>
-                <div class="file-row">
+                <div class="file-row" id="faceReferenceFileRow">
                   <input id="faceReferenceImage" type="file" accept="image/png,image/jpeg,image/webp">
                   <button id="clearFaceReferenceImageBtn" class="ghost" type="button">Clear</button>
                 </div>
-                <div class="file-row" style="margin-top:10px;">
+                <div class="file-row" id="faceReferenceUrlRow" style="margin-top:10px;">
                   <input id="faceReferenceImageUrl" type="url" placeholder="Paste public Instagram post or direct image URL">
                   <button id="fetchFaceReferenceImageBtn" class="secondary" type="button">Fetch Link</button>
                 </div>
@@ -1563,6 +1563,9 @@
       const rememberTokenCheckbox = document.getElementById("rememberToken");
       const workflowSelect = document.getElementById("workflow");
       const workflowCapabilities = document.getElementById("workflowCapabilities");
+      const faceReferenceField = document.getElementById("faceReferenceField");
+      const faceReferenceFileRow = document.getElementById("faceReferenceFileRow");
+      const faceReferenceUrlRow = document.getElementById("faceReferenceUrlRow");
       const faceReferenceImageInput = document.getElementById("faceReferenceImage");
       const faceReferenceImageUrlInput = document.getElementById("faceReferenceImageUrl");
       const fetchFaceReferenceImageBtn = document.getElementById("fetchFaceReferenceImageBtn");
@@ -1772,8 +1775,10 @@
         faceReferenceImageUrlInput.disabled = !supportsFaceReference || lockFaceReference;
         fetchFaceReferenceImageBtn.disabled = !supportsFaceReference || lockFaceReference;
         clearFaceReferenceImageBtn.disabled = !supportsFaceReference || lockFaceReference || !state.faceReferenceImageFilename;
+        faceReferenceFileRow.hidden = lockFaceReference;
+        faceReferenceUrlRow.hidden = lockFaceReference;
         faceReferenceImageHint.textContent = supportsFaceReference && lockFaceReference
-          ? "This workflow has a locked anchor face image. It will always use that face reference and ignore user replacements."
+          ? "This workflow uses the repo-bound anchor face configuration. It will always use that face reference and ignore user replacements."
           : supportsFaceReference
           ? "Upload a clean anchor face photo, or fetch one from a public link, to lock face identity for this workflow."
           : "Pick a workflow with face identity support to enable anchor face upload.";
