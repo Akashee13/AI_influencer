@@ -4,6 +4,7 @@ set -euo pipefail
 TARGET_USER="${SUDO_USER:-$USER}"
 TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
 COMFY_ROOT="${COMFY_ROOT:-$TARGET_HOME/comfy}"
+COMFY_APP_DIR=""
 CUSTOM_NODES_DIR="$COMFY_ROOT/custom_nodes"
 PULID_NODE_DIR="$CUSTOM_NODES_DIR/ComfyUI-PuLID-Flux"
 PATCH_DIR="$CUSTOM_NODES_DIR/ai_influencer_runtime_compat"
@@ -36,11 +37,19 @@ init_privileges() {
 }
 
 ensure_prereqs() {
-  if [[ ! -d "$COMFY_ROOT/ComfyUI" ]]; then
-    echo "ComfyUI was not found at $COMFY_ROOT/ComfyUI"
+  if [[ -f "$COMFY_ROOT/main.py" ]]; then
+    COMFY_APP_DIR="$COMFY_ROOT"
+  elif [[ -f "$COMFY_ROOT/ComfyUI/main.py" ]]; then
+    COMFY_APP_DIR="$COMFY_ROOT/ComfyUI"
+  else
+    echo "ComfyUI was not found in either:"
+    echo "  - $COMFY_ROOT/main.py"
+    echo "  - $COMFY_ROOT/ComfyUI/main.py"
     echo "Set COMFY_ROOT if your install lives elsewhere."
     exit 1
   fi
+
+  log "Detected ComfyUI app dir: $COMFY_APP_DIR"
   run_as_user "mkdir -p '$CUSTOM_NODES_DIR'"
 }
 
@@ -144,7 +153,7 @@ restart_services() {
 
   log "Using process restart fallback (no sudo/systemd control)"
   run_as_user "pkill -f 'python3 main.py' || true"
-  run_as_user "cd '$COMFY_ROOT/ComfyUI' && nohup python3 main.py --listen 127.0.0.1 --port 8188 > '$TARGET_HOME/comfy.log' 2>&1 &"
+  run_as_user "cd '$COMFY_APP_DIR' && nohup python3 main.py --listen 127.0.0.1 --port 8188 > '$TARGET_HOME/comfy.log' 2>&1 &"
   run_as_user "tail -n 30 '$TARGET_HOME/comfy.log'"
 }
 
