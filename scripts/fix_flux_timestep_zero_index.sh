@@ -10,6 +10,7 @@ PULID_NODE_DIR="$CUSTOM_NODES_DIR/ComfyUI-PuLID-Flux"
 PATCH_DIR="$CUSTOM_NODES_DIR/ai_influencer_runtime_compat"
 PATCH_FILE="$PATCH_DIR/__init__.py"
 CAN_SUDO=0
+PYTHON_BIN="python3"
 
 log() {
   printf '\n[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
@@ -34,6 +35,36 @@ init_privileges() {
   if command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
     CAN_SUDO=1
   fi
+}
+
+detect_python_bin() {
+  local candidates=(
+    "$COMFY_ROOT/.venv/bin/python"
+    "$COMFY_ROOT/venv/bin/python"
+    "$TARGET_HOME/comfy-cli-venv/bin/python"
+  )
+
+  for candidate in "${candidates[@]}"; do
+    if run_as_user "[[ -x '$candidate' ]]"; then
+      PYTHON_BIN="$candidate"
+      log "Using Python interpreter: $PYTHON_BIN"
+      return
+    fi
+  done
+
+  PYTHON_BIN="python3"
+  log "Using Python interpreter: $PYTHON_BIN"
+}
+
+install_with_pip() {
+  local pip_args="$*"
+
+  if run_as_user "$PYTHON_BIN -m pip $pip_args"; then
+    return
+  fi
+
+  log "pip command failed; retrying with --break-system-packages (PEP 668 fallback)"
+  run_as_user "$PYTHON_BIN -m pip --break-system-packages $pip_args"
 }
 
 ensure_prereqs() {
@@ -63,7 +94,8 @@ refresh_pulid_flux() {
   fi
 
   log "Installing ComfyUI-PuLID-Flux Python dependencies"
-  run_as_user "python3 -m pip install --upgrade pip && python3 -m pip install -r '$PULID_NODE_DIR/requirements.txt'"
+  install_with_pip "install --upgrade pip"
+  install_with_pip "install -r '$PULID_NODE_DIR/requirements.txt'"
 }
 
 install_runtime_patch() {
@@ -160,6 +192,7 @@ restart_services() {
 main() {
   init_privileges
   ensure_prereqs
+  detect_python_bin
   refresh_pulid_flux
   install_runtime_patch
   restart_services
